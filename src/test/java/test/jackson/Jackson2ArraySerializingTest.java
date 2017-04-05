@@ -2,7 +2,6 @@ package test.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonassert.JsonAssert;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import test.jackson.stubs.User;
 
@@ -10,8 +9,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_SINGLE_QUOTES;
-import static com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED;
 import static org.hamcrest.Matchers.*;
 import static test.jackson.stubs.Country.arrayOf;
@@ -22,12 +19,6 @@ import static test.jackson.stubs.Country.arrayOf;
 public class Jackson2ArraySerializingTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
-
-    @BeforeEach
-    void setUp() throws Throwable {
-        mapper.enable(ALLOW_UNQUOTED_FIELD_NAMES);
-        mapper.enable(ALLOW_SINGLE_QUOTES);
-    }
 
     @Test
     void treatArrayContainingSingleItemAsObjectNorArray() throws Throwable {

@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Test;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static test.java.functions.InlineMethodReferenceExpressionTest.Customer.DEFAULT_CUSTOMER_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static test.java.functions.InlineMethodReferenceExpressionTest.Customer.DEFAULT_CUSTOMER_NAME;
 
 /**
  * Created by holi on 4/4/17.

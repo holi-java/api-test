@@ -1,4 +1,4 @@
-package com.holi.jackson;
+package test.jackson;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.annotation.JsonIgnore;

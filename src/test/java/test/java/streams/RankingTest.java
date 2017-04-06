@@ -1,4 +1,4 @@
-package test.java.functions;
+package test.java.streams;
 
 import org.junit.jupiter.api.Test;
 

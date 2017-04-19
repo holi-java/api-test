@@ -64,7 +64,7 @@ public class JSONObjectFlattenTest {
     }
 
     private Stream<Object> flat(Map<?, ?> it) {
-        return it.values().stream().flatMap(this::flat);
+        return flat(it.values());
     }
 
     private Stream<Object> flat(Collection<?> array) {

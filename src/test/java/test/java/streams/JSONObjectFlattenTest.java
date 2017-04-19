@@ -1,6 +1,7 @@
 package test.java.streams;
 
 import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collection;
@@ -18,67 +19,143 @@ import static org.hamcrest.Matchers.equalTo;
 public class JSONObjectFlattenTest {
 
     @Test
-    void flatten() throws Throwable {
-        final String json =
-        /**/"[" +
-        /**/"    {" +
-        /**/"        ID: 12," +
-        /**/"        NAME: 'Whatever'," +
-        /**/"        X: [1,2, {Y:[3,4]}]" +
-        /**/"    }," +
-        /**/"    {" +
-        /**/"        ID: 34," +
-        /**/"        NAME: 'Again'," +
-        /**/"        X: [23,43]" +
-        /**/"    }" +
-        /**/"]";
+    void example() throws Throwable {
+        JSONArray array = JSONArray.fromObject(
+            /**/"[  " +
+            /**/"  {  " +
+            /**/"     obj1  : [  " +
+            /**/"          {  " +
+            /**/"              ID  : 12,  " +
+            /**/"              NAME  :  'Whatever'  ,  " +
+            /**/"              XY  :[1,2]  " +
+            /**/"          },  " +
+            /**/"          {  " +
+            /**/"              ID  : 34,  " +
+            /**/"              NAME  :  'Again'  ,  " +
+            /**/"              XY  :[23,43]  " +
+            /**/"          }  " +
+            /**/"    ]  " +
+            /**/"  }  " +
+            /**/"]"
+        );
+        JSONArray result = JSONArray.fromObject(
+            /**/"[  " +
+            /**/"  {  " +
+            /**/"     obj1  : [  " +
+            /**/"          [12,'Whatever',1,2],  " +
+            /**/"          [34,'Again',23,43]  " +
+            /**/"    ]  " +
+            /**/"  }  " +
+            /**/"]"
+        );
 
-        String expected =
-        /**/"[" +
-        /**/"    [12,'Whatever',1,2,3,4]," +
-        /**/"    [34,'Again',23,43]," +
-        /**/"]";
-        JSONArray array = JSONArray.fromObject(json);
-
-        JSONArray flatted = flatten(array);
-
-        assertThat(flatted, equalTo(JSONArray.fromObject(expected)));
+        assertThat(flatten(array), equalTo(result));
     }
 
-    public JSONArray flatten(Collection<?> it) {
-        return it.stream().map(this::flatten).collect(toJSONArray());
+    @Test
+    void arrayContainingNumber() throws Throwable {
+        JSONArray array = JSONArray.fromObject("[1]");
+        assertThat(flatten(array), equalTo(array));
     }
 
-    public JSONArray flatten(Map<?, ?> it) {
-        return flat(it).collect(toJSONArray());
+    @Test
+    void arrayContainingNullValue() throws Throwable {
+        JSONArray array = JSONArray.fromObject("[null]");
+        assertThat(flatten(array), equalTo(array));
     }
 
-    public Object flatten(Object it) {
+    @Test
+    void arrayNestedWithAnotherArray() throws Throwable {
+        JSONArray array = JSONArray.fromObject("[[1]]");
+        JSONArray expected = JSONArray.fromObject("[1]");
+        assertThat(flatten(array), equalTo(expected));
+    }
+
+
+    @Test
+    void objectContainingStringValue() throws Throwable {
+        JSONObject json = JSONObject.fromObject("{foo:'bar'}");
+
+        assertThat(flatten(json), equalTo(json));
+    }
+
+    @Test
+    void objectContainingNullValue() throws Throwable {
+        JSONObject json = JSONObject.fromObject("{foo:null}");
+
+        assertThat(flatten(json), equalTo(json));
+    }
+
+    @Test
+    void objectNestedWithAnotherObject() throws Throwable {
+        JSONObject json = JSONObject.fromObject("{item:{foo:'bar'}}");
+        JSONObject expected = JSONObject.fromObject("{item:['bar']}");
+
+        assertThat(flatten(json), equalTo(expected));
+    }
+
+    @Test
+    void objectNestedWithAnotherObjectContainingNullValue() throws Throwable {
+        JSONObject json = JSONObject.fromObject("{item:{foo:null}}");
+        JSONObject expected = JSONObject.fromObject("{item:[null]}");
+
+        assertThat(flatten(json), equalTo(expected));
+    }
+
+    @Test
+    void objectNestedWithJSONArray() throws Throwable {
+        JSONObject json = JSONObject.fromObject("{items:[{foo:'bar'}]}");
+        JSONObject expected = JSONObject.fromObject("{items:[['bar']]}");
+
+        assertThat(flatten(json), equalTo(expected));
+    }
+
+    @Test
+    void arrayNestedWithJSONObjectContainingStringProperty() throws Throwable {
+        JSONArray array = JSONArray.fromObject("[{foo:'bar'}]");
+
+        assertThat(flatten(array), equalTo(array));
+    }
+
+    @Test
+    void arrayNestedWithJSONObjectTakesAnotherJSONObject() throws Throwable {
+        JSONArray array = JSONArray.fromObject("[{item:{foo:'bar'}}]");
+        JSONArray expected = JSONArray.fromObject("[{item:['bar']}]");
+
+        assertThat(flatten(array), equalTo(expected));
+    }
+
+    public JSONArray flatten(Collection<?> array) {
+        return array.stream().flatMap(this::flatting).collect(toJSONArray());
+    }
+
+    private Stream<?> flatting(Object it) {
         if (it instanceof Collection) {
-            return flatten((Collection) it);
+            return ((Collection<?>) it).stream();
         }
         if (it instanceof Map) {
-            return flatten((Map) it);
-        }
-        return it;
-    }
-
-    private Stream<Object> flat(Map<?, ?> it) {
-        return flat(it.values());
-    }
-
-    private Stream<Object> flat(Collection<?> array) {
-        return array.stream().flatMap(this::flat);
-    }
-
-    private Stream<?> flat(Object it) {
-        if (it instanceof Collection) {
-            return flat((Collection) it);
-        }
-        if (it instanceof Map) {
-            return flat((Map) it);
+            return Stream.of(flatten((Map<?, ?>) it));
         }
         return Stream.of(it);
+    }
+
+    public JSONObject flatten(Map<?, ?> map) {
+        return map.entrySet().stream().collect(
+                JSONObject::new,
+                (it, field) -> it.put(field.getKey(), flatten(field.getValue())),
+                JSONObject::putAll
+        );
+    }
+
+    private Object flatten(Object it) {
+        if (it instanceof Collection) {
+            return ((Collection<?>) it).stream().map(this::flatten)
+                                                .collect(toJSONArray());
+        }
+        if (it instanceof Map) {
+            return flatten(((Map<?, ?>) it).values());
+        }
+        return it;
     }
 
     private <T> Collector<T, ?, JSONArray> toJSONArray() {

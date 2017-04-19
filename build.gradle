@@ -32,6 +32,7 @@ dependencies {
     compile 'org.springframework:spring-webmvc:5.0.0.M5'
     compile 'org.springframework:spring-context:5.0.0.M5'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.8.7'
+    compile 'net.sf.json-lib:json-lib:2.4:jdk15'
 
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.0-M3'
     testCompile 'org.springframework:spring-test:5.0.0.M5'

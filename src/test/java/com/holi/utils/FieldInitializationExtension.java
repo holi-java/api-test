@@ -1,6 +1,5 @@
 package com.holi.utils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.TestExtensionContext;
 

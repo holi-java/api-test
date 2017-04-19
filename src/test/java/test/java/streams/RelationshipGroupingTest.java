@@ -2,10 +2,12 @@ package test.java.streams;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.*;
-
-import java.util.Map.Entry;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.*;

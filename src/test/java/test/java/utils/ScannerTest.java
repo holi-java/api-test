@@ -2,7 +2,6 @@ package test.java.utils;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.EOFException;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 

@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -55,15 +54,27 @@ public class BuilderPatternTest {
     }
 
     interface Configurer<T, B extends Builder<T>> {
-        void configure(B builder);
+        static <A, T, B extends Builder<T>, R extends Configurer<T, B>> R mapping(Function<A, R> mapper, A arg) {
+            return mapper.apply(arg);
+        }
 
+        default EnclosedConfigurer<T, B> enclosing(B builder) {
+            Configurer<T, B> delegate = Configurer.this;
+            return new EnclosedConfigurer<T, B>(builder) {
+                public final void configure(B builder) {
+                    delegate.configure(builder);
+                }
+            };
+        }
+
+        void configure(B builder);
     }
 
-    static abstract class BacktrackingConfigurer<T, B extends Builder<T>> implements Configurer<T, B> {
+    static abstract class EnclosedConfigurer<T, B extends Builder<T>> implements Configurer<T, B> {
 
         private B builder;
 
-        protected BacktrackingConfigurer(B builder) {
+        protected EnclosedConfigurer(B builder) {
             this.builder = builder;
         }
 
@@ -77,31 +88,12 @@ public class BuilderPatternTest {
 
     }
 
-    static class BacktrackingConfigurerAdapter<T, B extends Builder<T>> extends BacktrackingConfigurer<T, B> {
-
-        private Configurer<T, B> configurer;
-
-        protected BacktrackingConfigurerAdapter(B builder, Configurer<T, B> configurer) {
-            super(builder);
-            this.configurer = configurer;
-        }
-
-        public final void configure(B builder) {
-            configurer.configure(builder);
-        }
-
-    }
-
     abstract static class ConfiguredBuilder<T, B extends Builder<T>> implements Builder<T> {
         private Set<Configurer<T, B>> configs = new HashSet<>();
 
         public <C extends Configurer<T, B>> ConfiguredBuilder<T, B> with(C config) {
             apply(config);
             return this;
-        }
-
-        public <A, R extends Configurer<T, B>> R apply(Function<A, R> mapper, A arg) {
-            return apply(mapper.apply(arg));
         }
 
         public <C extends Configurer<T, B>> C apply(C config) {
@@ -115,9 +107,7 @@ public class BuilderPatternTest {
         }
 
         private void configure() {
-            for (Configurer<T, B> config : configs) {
-                config.configure((B) this);
-            }
+            configs.forEach(it -> it.configure((B) this));
         }
 
         protected abstract T doBuild();
@@ -164,48 +154,45 @@ public class BuilderPatternTest {
             return this;
         }
 
-        public BacktrackingConfigurerAdapter<User, UserBuilder> named(String name) {
-            return handle(apply(UserBuilder::name, name));
+        public EnclosedConfigurer<User, UserBuilder> named(String name) {
+            return apply(Configurer.mapping(UserBuilder::name, name).enclosing(this));
         }
 
 
-        public BacktrackingConfigurerAdapter<User, UserBuilder> emailAddress(String email) {
-            return handle(apply(UserBuilder::email, email));
+        public EnclosedConfigurer<User, UserBuilder> emailAddress(String email) {
+            return apply(Configurer.mapping(UserBuilder::email, email).enclosing(this));
         }
 
 
-        private BacktrackingConfigurerAdapter<User, UserBuilder> handle(Configurer<User, UserBuilder> configurer) {
-            return apply(new BacktrackingConfigurerAdapter<>(this, configurer));
+        public AddressEnclosedConfigurer address() {
+            return apply(mapping(anAddress()));
         }
 
-        public AddressBacktrackingConfigurer address() {
-            return apply(new AddressBacktrackingConfigurer(this, UserBuilder::address));
+        private AddressEnclosedConfigurer mapping(AddressBuilder address) {
+            return new AddressEnclosedConfigurer(this);
         }
 
 
-        private class AddressBacktrackingConfigurer extends BacktrackingConfigurer<User, UserBuilder> {
-            private final BiFunction<String, String, Configurer<User, UserBuilder>> configurerMapper;
-            private String country;
-            private String city;
+        private class AddressEnclosedConfigurer extends EnclosedConfigurer<User, UserBuilder> {
+            private final AddressBuilder address = anAddress();
 
-            protected AddressBacktrackingConfigurer(UserBuilder builder, BiFunction<String, String, Configurer<User, UserBuilder>> configurerMapper) {
+            protected AddressEnclosedConfigurer(UserBuilder builder) {
                 super(builder);
-                this.configurerMapper = configurerMapper;
             }
 
-            public AddressBacktrackingConfigurer in(String country) {
-                this.country = country;
+            public AddressEnclosedConfigurer in(String country) {
+                address.in(country);
                 return this;
             }
 
-            public AddressBacktrackingConfigurer of(String city) {
-                this.city = city;
+            public AddressEnclosedConfigurer of(String city) {
+                address.of(city);
                 return this;
             }
 
             @Override
             public void configure(UserBuilder builder) {
-                configurerMapper.apply(country, city).configure(builder);
+                builder.with(address);
             }
         }
     }

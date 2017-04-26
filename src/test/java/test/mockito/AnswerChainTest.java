@@ -36,11 +36,11 @@ class AnswerChainTest {
         }
 
         default <R> AnswerChain<R> as(Class<R> type) {
-            return (it) -> type.cast(this.answer(it));
+            return to(type::cast);
         }
 
         default <R> AnswerChain<R> to(Function<T, R> mapper) {
-            return (it) -> mapper.apply(this.answer(it));
+            return (it) -> mapper.apply(answer(it));
         }
     }
 

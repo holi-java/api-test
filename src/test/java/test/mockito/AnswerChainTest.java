@@ -40,7 +40,7 @@ class AnswerChainTest {
         }
 
         default <R> AnswerChain<R> to(Function<T, R> mapper) {
-            return (it) -> mapper.apply(answer(it));
+            return it -> mapper.apply(answer(it));
         }
     }
 

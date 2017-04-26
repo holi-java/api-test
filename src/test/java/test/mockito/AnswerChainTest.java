@@ -13,15 +13,15 @@ import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static test.mockito.AdditionalAnswersTest.AnswerChain.will;
+import static test.mockito.AnswerChainTest.AnswerChain.will;
 
 /**
  * Created by holi on 4/27/17.
  */
-class AdditionalAnswersTest {
+class AnswerChainTest {
 
     @Test
-    void returnValueThatTransformedFromTheFirstArgument() throws Throwable {
+    void transformsTheReturnedValue() throws Throwable {
         Function<String, Optional> function = mock(Function.class);
 
         when(function.apply(anyString())).then(will(returnsFirstArg()).as(String.class).to(Optional::of));

@@ -25,7 +25,7 @@ class AdditionalAnswersTest {
         when(function.apply(anyString())).then(
             /**/ will(returnsFirstArg())
             /**/.as(String.class)
-            /**/.then(String::toUpperCase)
+            /**/.to(String::toUpperCase)
         );
 
         assertThat(function.apply("first"), equalTo("FIRST"));
@@ -41,7 +41,7 @@ class AdditionalAnswersTest {
             return (it) -> type.cast(this.answer(it));
         }
 
-        default <R> AnswerChain<R> then(Function<T, R> mapper) {
+        default <R> AnswerChain<R> to(Function<T, R> mapper) {
             return (it) -> mapper.apply(this.answer(it));
         }
     }

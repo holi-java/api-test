@@ -13,12 +13,12 @@ import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static test.mockito.AnswerChainTest.AnswerChain.will;
+import static test.mockito.AnswerPipelineTest.AnswerPipeline.will;
 
 /**
  * Created by holi on 4/27/17.
  */
-class AnswerChainTest {
+class AnswerPipelineTest {
 
     @Test
     void transformsTheReturnedValue() throws Throwable {
@@ -29,17 +29,17 @@ class AnswerChainTest {
         assertThat(function.apply("first"), equalTo(Optional.of("first")));
     }
 
-    interface AnswerChain<T> extends Answer<T> {
+    interface AnswerPipeline<T> extends Answer<T> {
 
-        static <R> AnswerChain<R> will(Answer<R> answer) {
+        static <R> AnswerPipeline<R> will(Answer<R> answer) {
             return answer::answer;
         }
 
-        default <R> AnswerChain<R> as(Class<R> type) {
+        default <R> AnswerPipeline<R> as(Class<R> type) {
             return to(type::cast);
         }
 
-        default <R> AnswerChain<R> to(Function<T, R> mapper) {
+        default <R> AnswerPipeline<R> to(Function<T, R> mapper) {
             return it -> mapper.apply(answer(it));
         }
     }

@@ -3,6 +3,7 @@ package test.mockito;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -20,11 +21,11 @@ class AdditionalAnswersTest {
 
     @Test
     void returnMappedValueFromTheFirstArgument() throws Throwable {
-        Function<String, String> function = mock(Function.class);
+        Function<String, Optional> function = mock(Function.class);
 
-        when(function.apply(anyString())).then(will(returnsFirstArg()).as(String.class).to(String::toUpperCase));
+        when(function.apply(anyString())).then(will(returnsFirstArg()).as(String.class).to(Optional::of));
 
-        assertThat(function.apply("first"), equalTo("FIRST"));
+        assertThat(function.apply("first"), equalTo(Optional.of("first")));
     }
 
     interface AnswerChain<T> extends Answer<T> {

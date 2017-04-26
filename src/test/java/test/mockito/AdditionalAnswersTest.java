@@ -22,11 +22,7 @@ class AdditionalAnswersTest {
     void returnMappedValueFromTheFirstArgument() throws Throwable {
         Function<String, String> function = mock(Function.class);
 
-        when(function.apply(anyString())).then(
-            /**/ will(returnsFirstArg())
-            /**/.as(String.class)
-            /**/.to(String::toUpperCase)
-        );
+        when(function.apply(anyString())).then(will(returnsFirstArg()).as(String.class).to(String::toUpperCase));
 
         assertThat(function.apply("first"), equalTo("FIRST"));
     }

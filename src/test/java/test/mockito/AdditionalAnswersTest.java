@@ -8,6 +8,7 @@ import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -30,7 +31,7 @@ class AdditionalAnswersTest {
 
     interface AnswerChain<T> extends Answer<T> {
 
-        static <T> AnswerChain<T> will(Answer<T> answer) {
+        static <R> AnswerChain<R> will(Answer<R> answer) {
             return answer::answer;
         }
 

@@ -20,7 +20,7 @@ import static test.mockito.AdditionalAnswersTest.AnswerChain.will;
 class AdditionalAnswersTest {
 
     @Test
-    void returnMappedValueFromTheFirstArgument() throws Throwable {
+    void returnValueThatTransformedFromTheFirstArgument() throws Throwable {
         Function<String, Optional> function = mock(Function.class);
 
         when(function.apply(anyString())).then(will(returnsFirstArg()).as(String.class).to(Optional::of));

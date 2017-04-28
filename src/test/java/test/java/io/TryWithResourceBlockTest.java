@@ -3,23 +3,27 @@ package test.java.io;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.holi.utils.CardinalMatchers.exactly;
+import static com.holi.utils.CardinalMatchers.never;
+import static com.holi.utils.CardinalMatchers.once;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Created by holi on 4/28/17.
  */
 public class TryWithResourceBlockTest {
-    private AtomicBoolean closed = new AtomicBoolean(false);
+    private AtomicInteger closed = new AtomicInteger();
 
     @Test
     void closesResourceAfterExitTheBlock() throws Throwable {
         try (AutoCloseable resource = whenClosed(closed)) {
-            assertResourceHasNotBeenClosed();
+            assertThat(closed, never());
         }
 
-        assertResourceHasBeenClosed();
+        assertThat(closed, once());
     }
 
     @Test
@@ -30,7 +34,7 @@ public class TryWithResourceBlockTest {
             }
         });
 
-        assertResourceHasBeenClosed();
+        assertThat(closed, once());
     }
 
     @Test
@@ -93,16 +97,41 @@ public class TryWithResourceBlockTest {
         });
     }
 
-    private void assertResourceHasNotBeenClosed() {
-        assertFalse(closed.get(), "stream is closed!");
+    @Test
+    void tryWithMultiResources() throws Throwable {
+        try (AutoCloseable first = whenClosed(closed); AutoCloseable last = whenClosed(closed)) {
+            assertThat(closed, never());
+        }
+
+        assertThat(closed, exactly(2));
     }
 
-    private void assertResourceHasBeenClosed() {
-        assertTrue(closed.get(), "stream is not closed!");
+    @Test
+    void closesRestOfResourcesEvenIfFailsOnPreviousResource() throws Throwable {
+        assertThrows(IOException.class, () -> {
+            try (AutoCloseable first = failsOnClosing(new IOException()); AutoCloseable last = whenClosed(closed)) {
+                assertThat(closed, never());
+            }
+        });
+
+
+        assertThat(closed, once());
     }
 
-    private AutoCloseable whenClosed(AtomicBoolean closed) {
-        return () -> closed.set(true);
+    @Test
+    void closesPreviousResourcesEvenIfFailsOnNextResources() throws Throwable {
+        assertThrows(IOException.class, () -> {
+            try (AutoCloseable first = whenClosed(closed); AutoCloseable last = failsOnClosing(new IOException())) {
+                assertThat(closed, never());
+            }
+        });
+
+
+        assertThat(closed, once());
+    }
+
+    private AutoCloseable whenClosed(AtomicInteger closed) {
+        return () -> closed.incrementAndGet();
     }
 
     private AutoCloseable failsOnClosing(IOException error) {

@@ -1,56 +1,55 @@
 package test.java.streams;
 
-import org.hamcrest.FeatureMatcher;
-import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
+import static com.holi.utils.CardinalMatchers.never;
+import static com.holi.utils.CardinalMatchers.once;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 
 /**
  * Created by holi on 4/25/17.
  */
 public class ClosingAutoCloseableResourceTest {
-    private final AtomicInteger close = new AtomicInteger();
-    private final AutoCloseable resource = close::incrementAndGet;
+    private final AtomicInteger closed = new AtomicInteger();
+    private final AutoCloseable resource = closed::incrementAndGet;
 
     @Test
     void closesResourceAndMappedStreamAfterMappedStreamConsumedOnMainStream() throws Throwable {
         Stream<AutoCloseable> it = Stream.of(resource).flatMap(this::closeResourceWhenStreamClosed);
-        assertThat(close, hasNeverBeenCalled());
+        assertThat(closed, never());
 
         it.findAny();
-        assertThat(close, hasBeenCalledOnce());
+        assertThat(closed, once());
     }
 
     @Test
     void doesNotClosesResourceAndMappedStreamAfterMainStreamClosed() throws Throwable {
         Stream<AutoCloseable> it = Stream.of(resource).flatMap(this::closeResourceWhenStreamClosed);
-        assertThat(close, hasNeverBeenCalled());
+        assertThat(closed, never());
 
         it.close();
-        assertThat(close, hasNeverBeenCalled());
+        assertThat(closed, never());
     }
 
     @Test
     void doesNotClosesResourceAfterStreamConsumedAsMainStream() throws Throwable {
         Stream<AutoCloseable> main = closeResourceWhenStreamClosed(resource);
-        assertThat(close, hasNeverBeenCalled());
+        assertThat(closed, never());
 
         main.findAny();
-        assertThat(close, hasNeverBeenCalled());
+        assertThat(closed, never());
     }
 
     @Test
     void closesResourceAfterStreamClosedAsMainStream() throws Throwable {
         Stream<AutoCloseable> main = closeResourceWhenStreamClosed(resource);
-        assertThat(close, hasNeverBeenCalled());
+        assertThat(closed, never());
 
         main.close();
-        assertThat(close, hasBeenCalledOnce());
+        assertThat(closed, once());
     }
 
 
@@ -62,23 +61,6 @@ public class ClosingAutoCloseableResourceTest {
         try {
             resource.close();
         } catch (Exception ignored) {}
-    }
-
-    private Matcher<Number> hasBeenCalledOnce() {
-        return exactly(1);
-    }
-
-    private Matcher<Number> hasNeverBeenCalled() {
-        return exactly(0);
-    }
-
-    private Matcher<Number> exactly(int times) {
-        return new FeatureMatcher<Number, Integer>(equalTo(times), "call times", "") {
-            @Override
-            protected Integer featureValueOf(Number actual) {
-                return actual.intValue();
-            }
-        };
     }
 
 }

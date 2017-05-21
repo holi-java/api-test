@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -117,12 +118,10 @@ public class SummarizingStatisticsTest {
     }
 
     private List<Item> from(String items) {
-        List<Item> result = new ArrayList<>();
-        for (String item : items.split("\n")) {
-            String[] fields = Arrays.stream(item.split("\\s+")).map(String::trim).toArray(String[]::new);
-            Product product = Product.of(fields[0], fields[1], fields[2]);
-            result.add(Item.of(product, Double.parseDouble(fields[3]), 1));
-        }
-        return result;
+        return Stream.of(items.split("\n"))
+                .map(it -> it.split("\\s+"))
+                .map(fields -> Stream.of(fields).map(String::trim).toArray(String[]::new))
+                .map(fields -> Item.of(Product.of(fields[0], fields[1], fields[2]), Double.parseDouble(fields[3]), 1))
+                .collect(Collectors.toList());
     }
 }

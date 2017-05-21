@@ -16,17 +16,20 @@ public class SummarizingStatisticsTest {
 
     static/**/
     class Product {
-        public String name;
-        public String category;
-        public String type;
-        public int id;
+        public final String name;
+        public final String category;
+        public final String type;
+        public final int id;
+
+        public Product(int id, String name, String category, String type) {
+            this.name = name;
+            this.category = category;
+            this.type = type;
+            this.id = id;
+        }
 
         public static Product of(String name, String category, String type) {
-            Product it = new Product();
-            it.name = name;
-            it.category = category;
-            it.type = type;
-            return it;
+            return new Product(-1, name, category, type);
         }
 
         //todo: implements equals() & hashCode() for Map key
@@ -52,9 +55,15 @@ public class SummarizingStatisticsTest {
 
     static/**/
     class Item {
-        public Product product;
-        public double cost;
-        public int qty;
+        public final Product product;
+        public final double cost;
+        public final int qty;
+
+        public Item(Product product, double cost, int qty) {
+            this.product = product;
+            this.cost = cost;
+            this.qty = qty;
+        }
 
         public Item add(Item that) {
             if (!Objects.equals(this.product, that.product)) {
@@ -64,11 +73,7 @@ public class SummarizingStatisticsTest {
         }
 
         public static Item of(Product product, double cost, int qty) {
-            Item it = new Item();
-            it.product = product;
-            it.cost = cost;
-            it.qty = qty;
-            return it;
+            return new Item(product, cost, qty);
         }
 
         //for test purpose

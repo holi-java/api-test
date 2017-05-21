@@ -1,6 +1,5 @@
 package test.java.streams;
 
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
@@ -64,11 +63,7 @@ public class SummarizingStatisticsTest {
             return from(product, this.cost + that.cost, this.qty + that.qty);
         }
 
-        public static Item from(Product product, double cost) {
-            return from(product, cost, 1);
-        }
-
-        private static Item from(Product product, double cost, int qty) {
+        public static Item from(Product product, double cost, int qty) {
             Item it = new Item();
             it.product = product;
             it.cost = cost;
@@ -121,7 +116,7 @@ public class SummarizingStatisticsTest {
         for (String item : items.split("\n")) {
             String[] fields = Arrays.stream(item.split("\\s+")).map(String::trim).toArray(String[]::new);
             Product product = Product.from(fields[0], fields[1], fields[2]);
-            result.add(Item.from(product, Double.parseDouble(fields[3])));
+            result.add(Item.from(product, Double.parseDouble(fields[3]), 1));
         }
         return result;
     }

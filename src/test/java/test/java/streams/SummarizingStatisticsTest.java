@@ -4,6 +4,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -29,6 +30,7 @@ public class SummarizingStatisticsTest {
             return it;
         }
 
+        //todo: implements equals() & hashCode() for Map key
         @Override
         public boolean equals(Object obj) {
             Product that = (Product) obj;
@@ -42,6 +44,7 @@ public class SummarizingStatisticsTest {
             return Objects.hash(id, name, category, type);
         }
 
+        //for test purpose
         @Override
         public String toString() {
             return String.format("%s-%s-%s", name, category, type);
@@ -52,17 +55,45 @@ public class SummarizingStatisticsTest {
     class Item {
         public Product product;
         public double cost;
+        public int qty;
+
+        public Item add(Item that) {
+            if (!Objects.equals(this.product, that.product)) {
+                throw new IllegalArgumentException("Can't be add items of diff products!");
+            }
+            return from(product, this.cost + that.cost, this.qty + that.qty);
+        }
 
         public static Item from(Product product, double cost) {
+            return from(product, cost, 1);
+        }
+
+        private static Item from(Product product, double cost, int qty) {
             Item it = new Item();
             it.product = product;
             it.cost = cost;
+            it.qty = qty;
             return it;
+        }
+
+        //for test purpose
+        @Override
+        public boolean equals(Object obj) {
+            Item that = (Item) obj;
+            return Arrays.asList(this.product, this.cost, this.qty).equals(
+                    Arrays.asList(that.product, that.cost, that.qty)
+            );
+        }
+
+        //for test purpose
+        @Override
+        public String toString() {
+            return String.format("%s - qty: %d, cost: %.2f", product, qty, cost);
         }
     }
 
     @Test
-    void summarizing() throws Throwable {
+    void mergesItemsWithSameProduct() throws Throwable {
         List<Item> items = from(
         /**/"prod1       cat2     t1      100.23\n" +
         /**/"prod2       cat1     t2      50.23\n" +
@@ -70,21 +101,18 @@ public class SummarizingStatisticsTest {
         /**/"prod3       cat2     t1      150.23\n" +
         /**/"prod1       cat2     t1      100.23"
         );
-        Map<Product, DoubleSummaryStatistics> stat = items.stream().collect(Collectors.groupingBy(
+
+        Collection<Item> summarized = items.stream().collect(Collectors.toMap(
                 it -> it.product,
-                Collectors.summarizingDouble(it -> it.cost)
-        ));
+                Function.identity(),
+                Item::add
+        )).values();
 
-
-        String[] output = stat.entrySet().stream().map(it -> String.format("%s - count: %d, total cost: %.2f"
-                , it.getKey(), it.getValue().getCount(), it.getValue().getSum())).toArray(String[]::new);
-
-
-        assertThat(output, arrayContainingInAnyOrder(
-                "prod1-cat1-t3 - count: 1, total cost: 200.23",
-                "prod1-cat2-t1 - count: 2, total cost: 200.46",
-                "prod2-cat1-t2 - count: 1, total cost: 50.23",
-                "prod3-cat2-t1 - count: 1, total cost: 150.23"
+        assertThat(summarized, containsInAnyOrder(
+                Item.from(Product.from("prod1", "cat1", "t3"), 200.23, 1),
+                Item.from(Product.from("prod1", "cat2", "t1"), 200.46, 2),
+                Item.from(Product.from("prod2", "cat1", "t2"), 50.23, 1),
+                Item.from(Product.from("prod3", "cat2", "t1"), 150.23, 1)
         ));
     }
 

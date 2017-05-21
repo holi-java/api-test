@@ -17,6 +17,7 @@ public class SummarizingStatisticsTest {
 
     static/**/
     class Product {
+        public static final int UNASSIGNED_ID = -1;
         public final String name;
         public final String category;
         public final String type;
@@ -30,7 +31,7 @@ public class SummarizingStatisticsTest {
         }
 
         public static Product of(String name, String category, String type) {
-            return new Product(-1, name, category, type);
+            return new Product(UNASSIGNED_ID, name, category, type);
         }
 
         //todo: implements equals() & hashCode() for Map key

@@ -21,7 +21,7 @@ public class SummarizingStatisticsTest {
         public String type;
         public int id;
 
-        public static Product from(String name, String category, String type) {
+        public static Product of(String name, String category, String type) {
             Product it = new Product();
             it.name = name;
             it.category = category;
@@ -60,10 +60,10 @@ public class SummarizingStatisticsTest {
             if (!Objects.equals(this.product, that.product)) {
                 throw new IllegalArgumentException("Can't be add items of diff products!");
             }
-            return from(product, this.cost + that.cost, this.qty + that.qty);
+            return of(product, this.cost + that.cost, this.qty + that.qty);
         }
 
-        public static Item from(Product product, double cost, int qty) {
+        public static Item of(Product product, double cost, int qty) {
             Item it = new Item();
             it.product = product;
             it.cost = cost;
@@ -104,10 +104,10 @@ public class SummarizingStatisticsTest {
         )).values();
 
         assertThat(summarized, containsInAnyOrder(
-                Item.from(Product.from("prod1", "cat1", "t3"), 200.23, 1),
-                Item.from(Product.from("prod1", "cat2", "t1"), 200.46, 2),
-                Item.from(Product.from("prod2", "cat1", "t2"), 50.23, 1),
-                Item.from(Product.from("prod3", "cat2", "t1"), 150.23, 1)
+                Item.of(Product.of("prod1", "cat1", "t3"), 200.23, 1),
+                Item.of(Product.of("prod1", "cat2", "t1"), 200.46, 2),
+                Item.of(Product.of("prod2", "cat1", "t2"), 50.23, 1),
+                Item.of(Product.of("prod3", "cat2", "t1"), 150.23, 1)
         ));
     }
 
@@ -115,8 +115,8 @@ public class SummarizingStatisticsTest {
         List<Item> result = new ArrayList<>();
         for (String item : items.split("\n")) {
             String[] fields = Arrays.stream(item.split("\\s+")).map(String::trim).toArray(String[]::new);
-            Product product = Product.from(fields[0], fields[1], fields[2]);
-            result.add(Item.from(product, Double.parseDouble(fields[3]), 1));
+            Product product = Product.of(fields[0], fields[1], fields[2]);
+            result.add(Item.of(product, Double.parseDouble(fields[3]), 1));
         }
         return result;
     }

@@ -32,7 +32,7 @@ public class InterfaceMethodsTest {
     void redefinedMethodsInInterfaceAreNotBothBridgeAndSyntheticMethods() throws Throwable {
         Method it = Bar.class.getDeclaredMethod("any", Object.class);
 
-        assertThat(it, not(isSynthentic()));
+        assertThat(it, not(isSynthetic()));
         assertThat(it, not(isBridge()));
     }
 
@@ -41,7 +41,7 @@ public class InterfaceMethodsTest {
     void redefinedGenericMethodsInInterfaceAreBridgeAndSyntheticMethods() throws Throwable {
         Method it = Bar.class.getDeclaredMethod("typed", Object.class);
 
-        assertThat(it, isSynthentic());
+        assertThat(it, isSynthetic());
         assertThat(it, isBridge());
     }
 
@@ -49,7 +49,7 @@ public class InterfaceMethodsTest {
     void redefinedNarrowedMethodsInInterfaceAreNotBothBridgeAndSyntheticMethods() throws Throwable {
         Method it = Bar.class.getDeclaredMethod("sub");
 
-        assertThat(it, not(isSynthentic()));
+        assertThat(it, not(isSynthetic()));
         assertThat(it, not(isBridge()));
     }
 
@@ -57,7 +57,7 @@ public class InterfaceMethodsTest {
         return hasProperty("bridge", is(true));
     }
 
-    private Matcher<Method> isSynthentic() {
+    private Matcher<Method> isSynthetic() {
         return hasProperty("synthetic", is(true));
     }
 }

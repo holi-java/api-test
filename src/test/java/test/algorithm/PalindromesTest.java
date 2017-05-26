@@ -2,17 +2,20 @@ package test.algorithm;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
+import static java.util.Arrays.copyOfRange;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 
 /**
  * Created by holi on 5/25/17.
  */
-public class PalindromeGeneratorTest {
+public class PalindromesTest {
+
 
     @Test
     void digits1() throws Throwable {
@@ -21,8 +24,9 @@ public class PalindromeGeneratorTest {
 
     @Test
     void digits2() throws Throwable {
-        assertThat(palindromes(2), contains(11L, 22L, 33L, 44L, 55L, 66L, 77L, 88L, 99L));
+        assertThat(palindromes(2), equalTo(asList(11L, 22L, 33L, 44L, 55L, 66L, 77L, 88L, 99L)));
     }
+
 
     @Test
     void digits3() throws Throwable {
@@ -32,6 +36,7 @@ public class PalindromeGeneratorTest {
         assertThat("tail", result.subList(80, 90), equalTo(asList(909L, 919L, 929L, 939L, 949L, 959L, 969L, 979L, 989L, 999L)));
         assertThat(result, hasSize(90));
     }
+
 
     @Test
     void digits4() throws Throwable {
@@ -65,39 +70,8 @@ public class PalindromeGeneratorTest {
         assertThat(result.get(result.size() - 1), equalTo(9999999999L));
     }
 
-
     private static List<Long> palindromes(int digits) {
-        return palindromes(digits, 0);
+        return Palindromes.of(digits).boxed().collect(Collectors.toList());
     }
 
-    private static List<Long> palindromes(int digits, int shifts) {
-        List<Long> result = new ArrayList<>();
-        int radix = 10;
-        long high = (long) Math.pow(radix, digits - 1);
-        int renaming = digits - 2;
-        if (renaming > 0) {
-            for (int i = start(digits, shifts); i <= 9; i++) {
-                for (Long m : palindromes(renaming, shifts + 1)) {
-                    long ret = i * high + m * radix + low(digits, i);
-                    if (ret < 0) {//overflow
-                        return result;
-                    }
-                    result.add(ret);
-                }
-            }
-        } else {
-            for (int i = start(digits, shifts); i <= 9; i++) {
-                result.add(i * high + low(digits, i));
-            }
-        }
-        return result;
-    }
-
-    private static int low(int digits, int high) {
-        return digits > 1 ? high : 0;
-    }
-
-    private static int start(int digits, int shifts) {
-        return digits > 1 && shifts == 0 ? 1 : 0;
-    }
 }

@@ -33,7 +33,10 @@ dependencies {
     compile 'org.springframework:spring-context:5.0.0.M5'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.8.7'
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.8.7'
-
+    compile 'ognl:ognl:3.2.2'
+    compile 'com.google.inject:guice:4.1.0'
+    compile 'com.google.inject.extensions:guice-assistedinject:4.1.0'
+    compile 'joda-time:joda-time:2.9.9'
     compile 'net.sf.json-lib:json-lib:2.4:jdk15'
 
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.0-M3'

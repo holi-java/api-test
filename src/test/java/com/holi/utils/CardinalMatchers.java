@@ -3,7 +3,7 @@ package com.holi.utils;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.*;
 
 /**
  * Created by holi on 4/29/17.
@@ -19,6 +19,14 @@ public class CardinalMatchers {
 
     public static Matcher<Number> exactly(int times) {
         return is(equalTo(times));
+    }
+
+    public static Matcher<Number> atMost(int times) {
+        return is(lessThanOrEqualTo(times));
+    }
+
+    public static Matcher<Number> atLeast(int times) {
+        return is(greaterThanOrEqualTo(times));
     }
 
     public static Matcher<Number> is(final Matcher<Integer> matcher) {

@@ -4,9 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.function.*;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collector;
+import java.util.stream.Collector.Characteristics;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -42,38 +44,24 @@ public class StreamCollectingAccordingSeparationOfConcernsTest {
     }
 
     static <T, A, R> Collector<T, ?, R> filtering​(Predicate<T> predicate, Collector<T, A, R> downstream) {
-        return new Collector<T, A, R>() {
-            @Override
-            public Supplier<A> supplier() {
-                return downstream.supplier();
+        return mapping(downstream, target -> (result, it) -> {
+            if (predicate.test(it)) {
+                target.accept(result, it);
             }
+        });
+    }
 
-            @Override
-            public BiConsumer<A, T> accumulator() {
-                BiConsumer<A, T> target = downstream.accumulator();
-                return (result, it) -> {
-                    if (predicate.test(it)) {
-                        target.accept(result, it);
-                    }
-                };
-            }
-
-            @Override
-            public BinaryOperator<A> combiner() {
-                return downstream.combiner();
-            }
-
-            @Override
-            public Function<A, R> finisher() {
-                return downstream.finisher();
-            }
-
-            @Override
-            public Set<Characteristics> characteristics() {
-                return downstream.characteristics();
-            }
-        };
+    private static <T, A, R> Collector<T, A, R> mapping(final Collector<T, A, R> downstream, final Function<BiConsumer<A, T>, BiConsumer<A, T>> mapping) {
+        return Collector.of(
+                downstream.supplier(),
+                mapping.apply(downstream.accumulator()),
+                downstream.combiner(),
+                downstream.finisher(),
+                downstream.characteristics().stream().toArray(Characteristics[]::new)
+        );
     }
 
 
 }
+
+

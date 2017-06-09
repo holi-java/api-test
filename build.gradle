@@ -7,8 +7,11 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 buildscript {
     repositories {
-        mavenCentral()
+        maven {
+            url = "http://maven.aliyun.com/nexus/content/groups/public"
+        }
     }
+
     dependencies {
         classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.0-M3'
     }
@@ -16,7 +19,9 @@ buildscript {
 
 apply plugin: 'org.junit.platform.gradle.plugin'
 repositories {
-    mavenCentral()
+    maven {
+        url = "http://maven.aliyun.com/nexus/content/groups/public"
+    }
     maven {
         name = "Alfresco Public Repository"
         url = "https://artifacts.alfresco.com/nexus/content/repositories/public/";
@@ -31,14 +36,15 @@ dependencies {
     compile 'org.hibernate:hibernate-core:5.2.9.Final'
     compile 'org.springframework:spring-webmvc:5.0.0.M5'
     compile 'org.springframework:spring-context:5.0.0.M5'
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.7'
-    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.8.7'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.8.1'
+    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.8.8'
+    compile 'com.fasterxml.jackson.module:jackson-module-parameter-names:2.8.8'
+    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.8.8'
     compile 'ognl:ognl:3.2.2'
     compile 'com.google.inject:guice:4.1.0'
     compile 'com.google.inject.extensions:guice-assistedinject:4.1.0'
     compile 'joda-time:joda-time:2.9.9'
     compile 'net.sf.json-lib:json-lib:2.4:jdk15'
-
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.0-M3'
     testCompile 'org.springframework:spring-test:5.0.0.M5'
     testCompile 'org.springframework.batch:spring-batch-test:4.0.0.M1'
@@ -47,6 +53,8 @@ dependencies {
     testCompile 'com.jayway.jsonpath:json-path-assert:2.2.0'
     testCompile 'org.ow2.asm:asm-all:6.0_ALPHA'
     testCompile 'org.hsqldb:hsqldb:2.3.4'
+    testCompile 'org.easytesting:fest-assert:1.4'
+    testCompile 'org.jmock:jmock:2.8.2'
 
     testRuntime 'org.junit.platform:junit-platform-console:1.0.0-M3'
     testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.0.0-M3'

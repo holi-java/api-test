@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -18,7 +20,9 @@ import static java.util.Collections.singleton;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 public class LazyInitializingTest {
     static final int MAX_THREADS = 20;
@@ -43,11 +47,24 @@ public class LazyInitializingTest {
     @Test
     public void disableLockWhenValueWasEvaluated() throws Throwable {
         int delay = 100;
-        Supplier<Integer> it = sync(once(delay(initializer, delay)));
+        AtomicInteger synchronizations = new AtomicInteger(0);
+        Supplier<Integer> it = sync(onLock(synchronizations::incrementAndGet), once(delay(initializer, delay)));
 
-        assertTimeout(Duration.ofMillis(delay * MAX_THREADS), () -> {
-            assertThat(parallelRepeat(it::get, delay * 1000), equalTo(singleton(1)));
+        assertTimeoutPreemptively(Duration.ofMillis(delay * MAX_THREADS), () -> {
+            assertThat(parallelRepeat(it::get, delay * MAX_THREADS * 10), equalTo(singleton(1)));
         });
+
+        assertThat(synchronizations.get(), lessThanOrEqualTo(MAX_THREADS));
+    }
+
+    private Lock onLock(Runnable action) {
+        return new ReentrantLock() {
+            @Override
+            public void lock() {
+                action.run();
+                super.lock();
+            }
+        };
     }
 
 
@@ -55,7 +72,7 @@ public class LazyInitializingTest {
         return sync(new ReentrantLock(), target);
     }
 
-    static <T> Supplier<T> sync(ReentrantLock lock, Supplier<T> target) {
+    static <T> Supplier<T> sync(Lock lock, Supplier<T> target) {
         //     v--- synchronizing for multi-threads once
         return once(() -> {
             lock.lock();

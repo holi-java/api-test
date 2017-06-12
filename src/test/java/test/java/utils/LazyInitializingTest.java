@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -96,18 +97,26 @@ public class LazyInitializingTest {
     }
 
     private <T> Set<T> parallelRepeat(Callable<T> task, int times) throws InterruptedException, ExecutionException {
-        ExecutorService service = Executors.newFixedThreadPool(MAX_THREADS);
-        CountDownLatch blocking = new CountDownLatch(1);
+        return distinct(startRepeating(task, times));
+    }
+
+    private <T> Set<T> distinct(List<Future<T>> futures) throws InterruptedException, ExecutionException {
         Set<T> result = new HashSet<>();
-
-        List<Future<T>> futures = IntStream.range(0, times).mapToObj(i -> service.submit(await(task, blocking))).collect(toList());
-
-        blocking.countDown();
-
         for (Future<T> future : futures) {
             result.add(future.get());
         }
+        return result;
+    }
 
+    private <T> List<Future<T>> startRepeating(Callable<T> task, int times) {
+        ExecutorService executor = Executors.newFixedThreadPool(MAX_THREADS);
+        return blocking(it -> IntStream.range(0, times).mapToObj(i -> executor.submit(await(task, it))).collect(toList()));
+    }
+
+    private <R> R blocking(Function<CountDownLatch, R> action) {
+        CountDownLatch blocking = new CountDownLatch(1);
+        R result = action.apply(blocking);
+        blocking.countDown();
         return result;
     }
 

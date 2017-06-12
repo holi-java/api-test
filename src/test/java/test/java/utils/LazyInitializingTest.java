@@ -26,18 +26,18 @@ public class LazyInitializingTest {
 
     @Test
     public void initializingOnce() throws Throwable {
-        Supplier<Integer> supplier = orElse(null, initializer);
+        Supplier<Integer> it = orElse(null, initializer);
 
-        assertThat(supplier.get(), equalTo(1));
-        assertThat(supplier.get(), equalTo(1));
+        assertThat(it.get(), equalTo(1));
+        assertThat(it.get(), equalTo(1));
     }
 
     @Test
     public void returnValueDirectlyIfValueIsNotNull() throws Throwable {
-        Supplier<?> supplier = orElse(-1, initializer);
+        Supplier<?> it = orElse(-1, initializer);
 
-        assertThat(supplier.get(), equalTo(-1));
-        assertThat(supplier.get(), equalTo(-1));
+        assertThat(it.get(), equalTo(-1));
+        assertThat(it.get(), equalTo(-1));
     }
 
     @Test

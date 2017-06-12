@@ -14,13 +14,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static java.time.Duration.ofMillis;
 import static java.util.Collections.singleton;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 public class LazyInitializingTest {
     static final int MAX_THREADS = 20;
@@ -44,12 +42,9 @@ public class LazyInitializingTest {
 
     @Test
     public void initializingOnceInMultiThreads() throws Throwable {
-        int delay = 100;
-        Supplier<Integer> it = sync(once(delay(initializer, delay)));
+        Supplier<Integer> it = sync(once(delay(initializer, 100)));
 
-        assertTimeoutPreemptively(ofMillis(delay * 2), () -> {
-            assertThat(parallelRepeat(it::get, MAX_THREADS), equalTo(singleton(1)));
-        });
+        assertThat(parallelRepeat(it::get, MAX_THREADS * 100), equalTo(singleton(1)));
     }
 
     @Test

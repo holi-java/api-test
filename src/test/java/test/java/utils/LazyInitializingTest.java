@@ -16,6 +16,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static java.time.Duration.ofMillis;
 import static java.util.Collections.singleton;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -45,14 +46,21 @@ public class LazyInitializingTest {
     }
 
     @Test
-    public void disableLockWhenValueWasEvaluated() throws Throwable {
+    public void initializingOnceInMultiThreads() throws Throwable {
         int delay = 100;
-        AtomicInteger synchronizations = new AtomicInteger(0);
-        Supplier<Integer> it = sync(onLock(synchronizations::incrementAndGet), once(delay(initializer, delay)));
+        Supplier<Integer> it = sync(once(delay(initializer, delay)));
 
-        assertTimeoutPreemptively(Duration.ofMillis(delay * MAX_THREADS), () -> {
-            assertThat(parallelRepeat(it::get, delay * MAX_THREADS * 10), equalTo(singleton(1)));
+        assertTimeoutPreemptively(ofMillis(delay * 2), () -> {
+            assertThat(parallelRepeat(it::get, MAX_THREADS), equalTo(singleton(1)));
         });
+    }
+
+    @Test
+    public void disableLockWhenValueWasEvaluated() throws Throwable {
+        AtomicInteger synchronizations = new AtomicInteger(0);
+        Supplier<Integer> it = sync(onLock(synchronizations::incrementAndGet), once(initializer));
+
+        parallelRepeat(it::get, MAX_THREADS * 100);
 
         assertThat(synchronizations.get(), lessThanOrEqualTo(MAX_THREADS));
     }

@@ -28,7 +28,7 @@ public class LazyInitializingTest {
 
     @Test
     public void initializingOnce() throws Throwable {
-        Supplier<Integer> supplier = once(initializer);
+        Supplier<Integer> supplier = orElse(null, initializer);
 
         assertThat(supplier.get(), equalTo(1));
         assertThat(supplier.get(), equalTo(1));
@@ -36,7 +36,7 @@ public class LazyInitializingTest {
 
     @Test
     public void returnValueDirectlyIfValueIsNotNull() throws Throwable {
-        Supplier<?> supplier = once(-1, initializer);
+        Supplier<?> supplier = orElse(-1, initializer);
 
         assertThat(supplier.get(), equalTo(-1));
         assertThat(supplier.get(), equalTo(-1));
@@ -78,7 +78,7 @@ public class LazyInitializingTest {
         });
     }
 
-    static <T> Supplier<T> once(T value, Supplier<T> defaults) {
+    static <T> Supplier<T> orElse(T value, Supplier<T> defaults) {
         return once(() -> value != null ? value : defaults.get());
     }
 

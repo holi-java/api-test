@@ -57,17 +57,6 @@ public class LazyInitializingTest {
         assertThat(synchronizations.get(), lessThanOrEqualTo(MAX_THREADS));
     }
 
-    private Lock onLock(Runnable action) {
-        return new ReentrantLock() {
-            @Override
-            public void lock() {
-                action.run();
-                super.lock();
-            }
-        };
-    }
-
-
     static <T> Supplier<T> sync(Supplier<T> target) {
         return sync(new ReentrantLock(), target);
     }
@@ -100,6 +89,16 @@ public class LazyInitializingTest {
             @Override
             public T get() {
                 return result.get();
+            }
+        };
+    }
+
+    private Lock onLock(Runnable action) {
+        return new ReentrantLock() {
+            @Override
+            public void lock() {
+                action.run();
+                super.lock();
             }
         };
     }

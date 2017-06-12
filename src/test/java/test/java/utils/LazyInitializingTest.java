@@ -79,7 +79,7 @@ public class LazyInitializingTest {
     }
 
     static <T> Supplier<T> orElse(T value, Supplier<T> defaults) {
-        return once(() -> value != null ? value : defaults.get());
+        return once(value != null ? () -> value : defaults);
     }
 
     static <T> Supplier<T> once(Supplier<T> target) {

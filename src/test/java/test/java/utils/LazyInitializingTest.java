@@ -72,16 +72,16 @@ public class LazyInitializingTest {
 
     static <T> Supplier<T> once(Supplier<T> target) {
         return new Supplier<T>() {
-            private Supplier<T> delegate = () -> {
-                T it = target.get();
+            private Supplier<T> result = () -> {
+                T evaluated = target.get();
                 //v--- return the evaluated value in turn
-                delegate = () -> it;
-                return it;
+                result = () -> evaluated;
+                return evaluated;
             };
 
             @Override
             public T get() {
-                return delegate.get();
+                return result.get();
             }
         };
     }

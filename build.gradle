@@ -33,6 +33,7 @@ repositories {
 }
 
 dependencies {
+    compile fileTree('libs')
     compile 'org.hibernate:hibernate-core:5.2.9.Final'
     compile 'org.springframework:spring-webmvc:5.0.0.M5'
     compile 'org.springframework:spring-context:5.0.0.M5'

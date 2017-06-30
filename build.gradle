@@ -24,7 +24,7 @@ repositories {
     }
     maven {
         name = "Alfresco Public Repository"
-        url = "https://artifacts.alfresco.com/nexus/content/repositories/public/";
+        url = "http://repo.spring.io/milestone/";
     }
     maven {
         name = "clojars"
@@ -74,5 +74,12 @@ apply plugin: 'idea';
 idea {
     module {
         excludeDirs += ['.idea', '.gradle', 'gradle'].collect { return file(it); };
+    }
+}
+
+idea {
+    module {
+        downloadJavadoc = true
+        downloadSources = true
     }
 }

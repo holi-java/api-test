@@ -144,10 +144,10 @@ abstract class StreamExceptionallyTest {
         assertThat(actual, equalTo(expected));
     }
 
-    private Stream<String> streamWithBadEstimateSize(int concurrent) {
+    private Stream<String> streamWithBadEstimateSize(int characteristics) {
         int badEstimateSize = 1;
 
-        return stream(spliterator(asList("1", null, "2").iterator(), badEstimateSize, concurrent), false);
+        return stream(spliterator(asList("1", null, "2").iterator(), badEstimateSize, characteristics), false);
     }
 
     private RuntimeException createAnExceptionDisablingRethrowingException() {

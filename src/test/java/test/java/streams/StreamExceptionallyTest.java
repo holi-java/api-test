@@ -3,16 +3,15 @@ package test.java.streams;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Spliterator;
-import java.util.Spliterators;
+import java.util.*;
 import java.util.Spliterators.AbstractSpliterator;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -121,14 +120,39 @@ abstract class StreamExceptionallyTest {
         assertThat(result.stream().distinct().collect(toList()), equalTo(singletonList(DEFAULT_VALUE)));
     }
 
+    @Test
+    void eachStreamConsumerIsThreadSafe() throws Throwable {
+        Map<Consumer<?>, Set<Thread>> threads = new ConcurrentHashMap<>();
+
+        testWithParallelism(action -> {
+            synchronized (threads) {
+                threads.computeIfAbsent(action, __ -> new HashSet<>()).add(Thread.currentThread());
+            }
+        });
+
+        threads.forEach((consumer, related) -> assertThat(related, hasSize(1)));
+    }
+
     private RuntimeException createAnDisabledRethrowingException() {
         // @formatter:off
         return new RuntimeException() {/*disable rethrow exception by ForkJoinTask*/};
         // @formatter:on
     }
 
-    Stream<Integer> testWith(Stream<Integer> source, BiConsumer<Exception, Consumer<? super Integer>> handler) {
+    protected Stream<Integer> testWith(Stream<Integer> source, BiConsumer<Exception, Consumer<? super Integer>> handler) {
         return exceptionally(streamMode.apply(source), handler);
+    }
+
+
+    protected Set<Thread> collectParallelismThreads() throws Throwable {
+        Set<Thread> threads = new CopyOnWriteArraySet<>();
+        testWithParallelism(action -> threads.add(Thread.currentThread()));
+        return threads;
+    }
+
+    private void testWithParallelism(Consumer<Consumer<? super Integer>> collector) throws Throwable {
+        Stream<Integer> source = Stream.iterate("bad", identity()).limit(1000).map(Integer::parseInt);
+        new ForkJoinPool(20).submit(testWith(source, (e, action) -> collector.accept(action))::count).get();
     }
 
     abstract <T> Stream<T> exceptionally(Stream<T> apply, BiConsumer<Exception, Consumer<? super T>> handler);
@@ -152,6 +176,11 @@ class AllTests {
             ParallelStreamTest() {
                 super(Stream::parallel);
             }
+
+            @Test
+            void streamParallelismEnabled() throws Throwable {
+                assertThat(collectParallelismThreads(), hasSize(greaterThan(2)));
+            }
         }
 
         abstract class ExceptionHandlingBySpliterator extends StreamExceptionallyTest {
@@ -166,7 +195,7 @@ class AllTests {
                     private T value;
                     private long fence;
 
-                    ExceptionallySpliterator(Spliterator<T> source) {
+                    private ExceptionallySpliterator(Spliterator<T> source) {
                         super(source.estimateSize(), source.characteristics());
                         this.fence = source.getExactSizeIfKnown();
                         this.source = source;
@@ -236,6 +265,12 @@ class AllTests {
                 super(Stream::parallel);
             }
 
+            @Test
+            void parallelismDisabled() throws Throwable {
+                //TODO: how to enable parallelism for Iterator?
+                assertThat(collectParallelismThreads(), hasSize(1));
+            }
+
         }
 
 
@@ -263,15 +298,16 @@ class AllTests {
 
                     @Override
                     public boolean hasNext() {
-                        if (fence == 0) return false;
-                        if (valueInReady) return true;
+                        while (true) {
+                            if (valueInReady) return true;
+                            if (fence == 0) return false;
 
-                        try {
-                            fence--;
-                            return source.hasNext();
-                        } catch (Exception ex) {
-                            handler.accept(ex, this);
-                            return valueInReady || hasNext();
+                            try {
+                                fence--;
+                                return source.hasNext();
+                            } catch (Exception ex) {
+                                handler.accept(ex, this);
+                            }
                         }
                     }
 

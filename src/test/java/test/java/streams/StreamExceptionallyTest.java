@@ -1,5 +1,6 @@
 package test.java.streams;
 
+import org.hibernate.usertype.Sized;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -13,12 +14,13 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import static com.holi.utils.CardinalMatchers.once;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+import static java.util.Spliterator.CONCURRENT;
+import static java.util.Spliterator.SIZED;
 import static java.util.Spliterators.spliterator;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toList;
@@ -34,8 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @SuppressWarnings({"WeakerAccess", "ResultOfMethodCallIgnored"})
 abstract class StreamExceptionallyTest {
 
-    static final BiConsumer<Exception, Consumer<? super Integer>> SKIPPING = (ex, unused) -> {/**/};
     static final int DEFAULT_VALUE = -1;
+    static final BiConsumer<Exception, Consumer<? super Integer>> SKIPPING = (ex, unused) -> {/**/};
+    static final BiConsumer<Exception, Consumer<? super Integer>> DEFAULT = (ex, action) -> action.accept(DEFAULT_VALUE);
 
     private Function<Stream<Integer>, Stream<Integer>> streamMode;
 
@@ -43,56 +46,46 @@ abstract class StreamExceptionallyTest {
         this.streamMode = streamMode;
     }
 
-
     @Test
     @Feature("Rethrowing custom Exception")
     void rethrowExceptionByExceptionHandler() throws Throwable {
         RuntimeException expected = createAnExceptionDisablingRethrowingException();
+
         //@formatter:off
-        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, unused) -> { throw expected; });
+        Stream<Integer> it = testWith(Stream.of("bad"), (ex, unused) -> { throw expected; });
         //@formatter:on
 
-        Throwable actual = assertThrows(RuntimeException.class, it::count);
-        assertThat(actual, sameInstance(expected));
+        assertThat(assertThrows(RuntimeException.class, it::count), sameInstance(expected));
     }
 
     @Test
     @Feature("Applying default value for the failed operations")
     void applyingDefaultValueForTheFailedOperations() throws Throwable {
-        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, action) -> action.accept(DEFAULT_VALUE));
-
-        assertThat(it.collect(toList()), equalTo(singletonList(DEFAULT_VALUE)));
+        assertThat(testWith(Stream.of("bad"), DEFAULT).collect(toList()), equalTo(singletonList(DEFAULT_VALUE)));
     }
 
     @Test
     @Feature(value = "skip processing for the failed operations")
     void skipProcessingForTheFailedOperations() throws Throwable {
-        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), SKIPPING);
-
-        assertThat(it.collect(toList()), is(emptyList()));
+        assertThat(testWith(Stream.of("bad"), SKIPPING).collect(toList()), is(emptyList()));
     }
 
     @Test
     void collectingElementsFromSourceStream() throws Throwable {
         final BiConsumer<Exception, Consumer<? super Integer>> UNUSED = null;
 
-        Stream<Integer> it = testWith(Stream.of("1").map(Integer::parseInt), UNUSED);
-
-        assertThat(it.collect(toList()), is(singletonList(1)));
+        assertThat(testWith(Stream.of("1"), UNUSED).collect(toList()), is(singletonList(1)));
     }
 
     @Test
     void continueToProcessingRemainingValidElementsWhenOccursFailedOperations() throws Throwable {
-        Stream<Integer> it = testWith(Stream.of("1", "bad", "2").map(Integer::parseInt), SKIPPING);
-
-        assertThat(it.collect(toList()), is(asList(1, 2)));
+        assertThat(testWith(Stream.of("1", "bad", "2"), SKIPPING).collect(toList()), is(asList(1, 2)));
     }
 
     @Test
     void failFastWhenSubsequentOperationsFailed() throws Throwable {
         RuntimeException expected = createAnExceptionDisablingRethrowingException();
-
-        Stream<Integer> it = testWith(Stream.of(1, 2, 3), SKIPPING);
+        Stream<Integer> it = testWith(Stream.of("1", "2", "3"), SKIPPING);
 
         //@formatter:off
         Throwable actual = assertThrows(RuntimeException.class, () -> it.reduce((ex, unused) -> { throw expected; }));
@@ -104,7 +97,7 @@ abstract class StreamExceptionallyTest {
     void closesSourceStreamWhenExceptionallyStreamClosed() throws Throwable {
         AtomicInteger closes = new AtomicInteger(0);
 
-        testWith(Stream.<Integer>empty().onClose(closes::incrementAndGet), SKIPPING).close();
+        testWith(Stream.<String>empty().onClose(closes::incrementAndGet), SKIPPING).close();
 
         assertThat(closes, once());
     }
@@ -112,9 +105,9 @@ abstract class StreamExceptionallyTest {
     @Test
     void supportsInfiniteStream() throws Throwable {
         final int LIMIT = 100;
-        Stream<Integer> infinity = Stream.iterate("bad", identity()).map(Integer::parseInt);
+        Stream<String> infinity = Stream.iterate("bad", identity());
 
-        List<Integer> result = testWith(infinity, (e, action) -> action.accept(DEFAULT_VALUE)).limit(LIMIT).collect(toList());
+        List<Integer> result = testWith(infinity, DEFAULT).limit(LIMIT).collect(toList());
 
         assertThat(result, hasSize(LIMIT));
         assertThat(result.stream().distinct().collect(toList()), equalTo(singletonList(DEFAULT_VALUE)));
@@ -133,16 +126,39 @@ abstract class StreamExceptionallyTest {
         threads.forEach((consumer, related) -> assertThat(related, hasSize(1)));
     }
 
+    @Test
+    void supportConcurrentSpliteratorWithBadEstimateSize() throws Throwable {
+        List<Integer> expected = streamWithBadEstimateSize(CONCURRENT).filter(Objects::nonNull).map(Integer::parseInt).collect(toList());
+
+        List<Integer> actual = testWith(streamWithBadEstimateSize(CONCURRENT), SKIPPING).collect(toList());
+
+        assertThat(actual, equalTo(expected));
+    }
+
+    @Test
+    void donotSupportSizedSpliteratorWithBadEstimateSize() throws Throwable {
+        List<Integer> expected = streamWithBadEstimateSize(SIZED).filter(Objects::nonNull).map(Integer::parseInt).collect(toList());
+
+        List<Integer> actual = testWith(streamWithBadEstimateSize(SIZED), SKIPPING).collect(toList());
+
+        assertThat(actual, both(not(equalTo(expected))).and(hasSize(1)));
+    }
+
+    private Stream<String> streamWithBadEstimateSize(int concurrent) {
+        int badEstimateSize = 1;
+
+        return stream(spliterator(asList("1", null, "2").iterator(), badEstimateSize, concurrent), false);
+    }
+
     private RuntimeException createAnExceptionDisablingRethrowingException() {
         // @formatter:off
         return new RuntimeException() {/*disable rethrow exception by ForkJoinTask*/};
         // @formatter:on
     }
 
-    protected Stream<Integer> testWith(Stream<Integer> source, BiConsumer<Exception, Consumer<? super Integer>> handler) {
-        return exceptionally(streamMode.apply(source), handler);
+    private Stream<Integer> testWith(Stream<String> source, BiConsumer<Exception, Consumer<? super Integer>> handler) {
+        return exceptionally(streamMode.apply(source.map(Integer::parseInt)), handler);
     }
-
 
     protected Set<Thread> collectParallelismThreads() throws Throwable {
         Set<Thread> threads = new CopyOnWriteArraySet<>();
@@ -151,7 +167,7 @@ abstract class StreamExceptionallyTest {
     }
 
     private void testWithParallelism(Consumer<Consumer<? super Integer>> collector) throws Throwable {
-        Stream<Integer> source = Stream.iterate("bad", identity()).limit(1000).map(Integer::parseInt);
+        Stream<String> source = Stream.iterate("bad", identity()).limit(1000);
         new ForkJoinPool(20).submit(testWith(source, (e, action) -> collector.accept(action))::count).get();
     }
 
@@ -281,7 +297,7 @@ class AllTests {
 
             <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
                 Spliterator<T> s = source.spliterator();
-                return StreamSupport.stream(
+                return stream(
                         spliterator(exceptionally(s, handler), s.estimateSize(), s.characteristics()),
                         false
                 ).onClose(source::close);

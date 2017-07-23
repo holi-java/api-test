@@ -209,6 +209,7 @@ class AllTests {
                 class ExceptionallySpliterator extends AbstractSpliterator<T> implements Consumer<T> {
 
                     private Spliterator<T> source;
+                    private boolean valueInReady = false;
                     private T value;
                     private boolean stop;
 
@@ -225,36 +226,35 @@ class AllTests {
 
                     @Override
                     public boolean tryAdvance(Consumer<? super T> action) {
-                        return !stop && consuming(action);
-                    }
+                        if (stop) return false;
 
-                    private boolean consuming(Consumer<? super T> action) {
-                        Boolean state = tryConsuming(action);
-                        if (state == null) {
-                            return true;
-                        }
-                        if (state) {
-                            action.accept(value);
-                            value = null;
-                            return true;
-                        }
-                        return false;
+                        boolean exists = tryConsuming(action);
+                        if (valueInReady) action.accept(dump());
+                        return exists;
                     }
 
 
-                    private Boolean tryConsuming(Consumer<? super T> action) {
+                    private boolean tryConsuming(Consumer<? super T> action) {
                         try {
                             return source.tryAdvance(this);
                         } catch (Exception ex) {
                             stop = shouldStopTraversing(ex);
                             handler.accept(ex, action);
-                            return null;
+                            return true;
                         }
+                    }
+
+                    private T dump() {
+                        valueInReady = false;
+                        T result = value;
+                        value = null;
+                        return result;
                     }
 
 
                     @Override
                     public void accept(T value) {
+                        valueInReady = true;
                         this.value = value;
                     }
                 }

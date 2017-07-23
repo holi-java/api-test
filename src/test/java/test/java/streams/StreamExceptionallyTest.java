@@ -18,24 +18,27 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+@interface Feature {
+    String value();
+}
 
 @SuppressWarnings({"WeakerAccess", "ResultOfMethodCallIgnored"})
 abstract class StreamExceptionallyTest {
 
+    private Function<Stream<Integer>, Stream<Integer>> streamMode;
     final BiConsumer<Exception, Consumer<? super Integer>> SKIPPING = (ex, unused) -> {/**/};
 
     StreamExceptionallyTest(Function<Stream<Integer>, Stream<Integer>> streamMode) {
         this.streamMode = streamMode;
     }
 
-    private Function<Stream<Integer>, Stream<Integer>> streamMode;
-
 
     @Test
+    @Feature("Rethrowing custom Exception")
     void rethrowExceptionByExceptionHandler() throws Throwable {
         RuntimeException expected = new RuntimeException();
 
-        Stream<Integer> it = testing(Stream.of("bad").map(Integer::parseInt), (ex, unused) -> {
+        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, unused) -> {
             throw expected;
         });
 
@@ -45,41 +48,43 @@ abstract class StreamExceptionallyTest {
     }
 
     @Test
-    void applyingDefaultValueInFailedOperations() throws Throwable {
+    @Feature("Applying default value for the failed operations")
+    void applyingDefaultValueForTheFailedOperations() throws Throwable {
         final int DEFAULT_VALUE = -1;
 
-        Stream<Integer> it = testing(Stream.of("bad").map(Integer::parseInt), (ex, action) -> action.accept(DEFAULT_VALUE));
+        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, action) -> action.accept(DEFAULT_VALUE));
 
         assertThat(it.collect(toList()), equalTo(singletonList(DEFAULT_VALUE)));
     }
 
     @Test
-    void skippingFailedOperations() throws Throwable {
-        Stream<Integer> it = testing(Stream.of("bad").map(Integer::parseInt), SKIPPING);
+    @Feature(value = "skip processing for the failed operations")
+    void skipProcessingForTheFailedOperations() throws Throwable {
+        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), SKIPPING);
 
         assertThat(it.collect(toList()), is(emptyList()));
     }
 
     @Test
-    void collectingValidElements() throws Throwable {
+    void collectingElementsFromSourceStream() throws Throwable {
         final BiConsumer<Exception, Consumer<? super Integer>> UNUSED = null;
 
-        Stream<Integer> it = testing(Stream.of("1").map(Integer::parseInt), UNUSED);
+        Stream<Integer> it = testWith(Stream.of("1").map(Integer::parseInt), UNUSED);
 
         assertThat(it.collect(toList()), is(singletonList(1)));
     }
 
     @Test
     void continueToProcessingRemainingValidElementsWhenOccursFailedOperations() throws Throwable {
-        Stream<Integer> it = testing(Stream.of("1", "bad", "2").map(Integer::parseInt), SKIPPING);
+        Stream<Integer> it = testWith(Stream.of("1", "bad", "2").map(Integer::parseInt), SKIPPING);
 
         assertThat(it.collect(toList()), is(asList(1, 2)));
     }
 
     @Test
-    void throwsExceptionWhenErrorOccursInSubsequentOperations() throws Throwable {
+    void failFastWhenSubsequentOperationsFailed() throws Throwable {
         RuntimeException expected = new RuntimeException();
-        Stream<Integer> it = testing(Stream.of(1, 2, 3), SKIPPING);
+        Stream<Integer> it = testWith(Stream.of(1, 2, 3), SKIPPING);
 
         Throwable actual = assertThrows(RuntimeException.class, () -> it.reduce((ex, unused) -> {
             throw expected;
@@ -88,8 +93,7 @@ abstract class StreamExceptionallyTest {
         assertThat(actual, sameInstance(expected));
     }
 
-    Stream<Integer> testing(Stream<Integer> source,
-                            BiConsumer<Exception, Consumer<? super Integer>> handler) {
+    Stream<Integer> testWith(Stream<Integer> source, BiConsumer<Exception, Consumer<? super Integer>> handler) {
         return exceptionally(streamMode.apply(source), handler);
     }
 

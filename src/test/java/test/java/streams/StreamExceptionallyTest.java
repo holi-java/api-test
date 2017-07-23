@@ -1,6 +1,5 @@
 package test.java.streams;
 
-import org.hibernate.usertype.Sized;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +27,7 @@ import static java.util.stream.StreamSupport.stream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static test.java.streams.StreamExceptionTracker.shouldStopTraversing;
 
 @interface Feature {
     String value();
@@ -136,12 +136,12 @@ abstract class StreamExceptionallyTest {
     }
 
     @Test
-    void donotSupportSizedSpliteratorWithBadEstimateSize() throws Throwable {
+    void supportSizedSpliteratorWithBadEstimateSize() throws Throwable {
         List<Integer> expected = streamWithBadEstimateSize(SIZED).filter(Objects::nonNull).map(Integer::parseInt).collect(toList());
 
         List<Integer> actual = testWith(streamWithBadEstimateSize(SIZED), SKIPPING).collect(toList());
 
-        assertThat(actual, both(not(equalTo(expected))).and(hasSize(1)));
+        assertThat(actual, equalTo(expected));
     }
 
     private Stream<String> streamWithBadEstimateSize(int concurrent) {
@@ -209,11 +209,10 @@ class AllTests {
 
                     private Spliterator<T> source;
                     private T value;
-                    private long fence;
+                    private boolean stop;
 
                     private ExceptionallySpliterator(Spliterator<T> source) {
                         super(source.estimateSize(), source.characteristics());
-                        this.fence = source.getExactSizeIfKnown();
                         this.source = source;
                     }
 
@@ -225,7 +224,7 @@ class AllTests {
 
                     @Override
                     public boolean tryAdvance(Consumer<? super T> action) {
-                        return fence != 0 && consuming(action);
+                        return !stop && consuming(action);
                     }
 
                     private boolean consuming(Consumer<? super T> action) {
@@ -243,14 +242,15 @@ class AllTests {
 
 
                     private Boolean tryConsuming(Consumer<? super T> action) {
-                        fence--;
                         try {
                             return source.tryAdvance(this);
                         } catch (Exception ex) {
+                            stop = shouldStopTraversing(ex);
                             handler.accept(ex, action);
                             return null;
                         }
                     }
+
 
                     @Override
                     public void accept(T value) {
@@ -308,20 +308,19 @@ class AllTests {
             private <T> Iterator<T> exceptionally(Spliterator<T> spliterator, BiConsumer<Exception, Consumer<? super T>> handler) {
                 class ExceptionallyIterator implements Iterator<T>, Consumer<T> {
                     private Iterator<T> source = Spliterators.iterator(spliterator);
-                    private long fence = spliterator.getExactSizeIfKnown();
                     private T value;
                     private boolean valueInReady = false;
+                    private boolean stop = false;
 
                     @Override
                     public boolean hasNext() {
                         while (true) {
                             if (valueInReady) return true;
-                            if (fence == 0) return false;
-
+                            if (stop) return false;
                             try {
-                                fence--;
                                 return source.hasNext();
                             } catch (Exception ex) {
+                                stop = shouldStopTraversing(ex);
                                 handler.accept(ex, this);
                             }
                         }
@@ -354,3 +353,16 @@ class AllTests {
 }
 
 
+class StreamExceptionTracker {
+
+    private static final String STREAM_BUG_CLASS = "java.util.stream.Streams$StreamBuilderImpl";
+
+    public static boolean shouldStopTraversing(Exception ex) {
+        for (StackTraceElement element : ex.getStackTrace()) {
+            if (STREAM_BUG_CLASS.equals(element.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

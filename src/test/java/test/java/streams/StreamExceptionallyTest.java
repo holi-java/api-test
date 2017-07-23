@@ -172,7 +172,7 @@ abstract class StreamExceptionallyTest {
         new ForkJoinPool(20).submit(testWith(source, (e, action) -> collector.accept(action))::count).get();
     }
 
-    abstract <T> Stream<T> exceptionally(Stream<T> apply, BiConsumer<Exception, Consumer<? super T>> handler);
+    abstract <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler);
 
 }
 
@@ -328,8 +328,8 @@ class AllTests {
                     }
 
                     private T dump() {
-                        T result = value;
                         valueInReady = false;
+                        T result = value;
                         value = null;
                         return result;
                     }

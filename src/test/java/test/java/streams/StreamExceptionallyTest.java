@@ -7,12 +7,14 @@ import java.util.Iterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.Spliterators.AbstractSpliterator;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.holi.utils.CardinalMatchers.once;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -94,6 +96,15 @@ abstract class StreamExceptionallyTest {
         Throwable actual = assertThrows(RuntimeException.class, () -> it.reduce((ex, unused) -> { throw expected; }));
         //@formatter:on
         assertThat(actual, sameInstance(expected));
+    }
+
+    @Test
+    void closesSourceStreamWhenExceptionallyStreamClosed() throws Throwable {
+        AtomicInteger closes = new AtomicInteger(0);
+
+        testWith(Stream.<Integer>empty().onClose(closes::incrementAndGet), SKIPPING).close();
+
+        assertThat(closes, once());
     }
 
     private RuntimeException createAnDisabledRethrowingException() {
@@ -224,7 +235,7 @@ class AllTests {
                 return StreamSupport.stream(
                         spliterator(exceptionally(s, handler), s.estimateSize(), s.characteristics()),
                         false
-                );
+                ).onClose(source::close);
             }
 
 

@@ -47,7 +47,7 @@ abstract class StreamExceptionallyTest {
     @Test
     @Feature("Rethrowing custom Exception")
     void rethrowExceptionByExceptionHandler() throws Throwable {
-        RuntimeException expected = createAnDisabledRethrowingException();
+        RuntimeException expected = createAnExceptionDisablingRethrowingException();
         //@formatter:off
         Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, unused) -> { throw expected; });
         //@formatter:on
@@ -90,7 +90,7 @@ abstract class StreamExceptionallyTest {
 
     @Test
     void failFastWhenSubsequentOperationsFailed() throws Throwable {
-        RuntimeException expected = createAnDisabledRethrowingException();
+        RuntimeException expected = createAnExceptionDisablingRethrowingException();
 
         Stream<Integer> it = testWith(Stream.of(1, 2, 3), SKIPPING);
 
@@ -133,7 +133,7 @@ abstract class StreamExceptionallyTest {
         threads.forEach((consumer, related) -> assertThat(related, hasSize(1)));
     }
 
-    private RuntimeException createAnDisabledRethrowingException() {
+    private RuntimeException createAnExceptionDisablingRethrowingException() {
         // @formatter:off
         return new RuntimeException() {/*disable rethrow exception by ForkJoinTask*/};
         // @formatter:on

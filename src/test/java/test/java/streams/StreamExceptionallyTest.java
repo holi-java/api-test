@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Spliterator.CONCURRENT;
 import static java.util.Spliterator.SIZED;
 import static java.util.Spliterators.spliterator;
+import static java.util.Spliterators.spliteratorUnknownSize;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
@@ -296,18 +297,13 @@ class AllTests {
             }
 
             <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
-                Spliterator<T> s = source.spliterator();
-                return stream(
-                        spliterator(exceptionally(s, handler), s.estimateSize(), s.characteristics()),
-                        false
-                ).onClose(source::close);
+                return stream(spliteratorUnknownSize(exceptionally(source.iterator(), handler), 0), false).onClose(source::close);
             }
 
 
             //Don't worried the thread-safe & robust since it is invisible for anyone
-            private <T> Iterator<T> exceptionally(Spliterator<T> spliterator, BiConsumer<Exception, Consumer<? super T>> handler) {
+            private <T> Iterator<T> exceptionally(Iterator<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
                 class ExceptionallyIterator implements Iterator<T>, Consumer<T> {
-                    private Iterator<T> source = Spliterators.iterator(spliterator);
                     private T value;
                     private boolean valueInReady = false;
                     private boolean stop = false;

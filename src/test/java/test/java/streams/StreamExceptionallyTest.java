@@ -42,13 +42,11 @@ abstract class StreamExceptionallyTest {
     @Feature("Rethrowing custom Exception")
     void rethrowExceptionByExceptionHandler() throws Throwable {
         RuntimeException expected = createAnDisabledRethrowingException();
-
-        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, unused) -> {
-            throw expected;
-        });
+        //@formatter:off
+        Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, unused) -> { throw expected; });
+        //@formatter:on
 
         Throwable actual = assertThrows(RuntimeException.class, it::count);
-
         assertThat(actual, sameInstance(expected));
     }
 
@@ -92,16 +90,16 @@ abstract class StreamExceptionallyTest {
 
         Stream<Integer> it = testWith(Stream.of(1, 2, 3), SKIPPING);
 
-        Throwable actual = assertThrows(RuntimeException.class, () -> it.reduce((ex, unused) -> {
-            throw expected;
-        }));
-
+        //@formatter:off
+        Throwable actual = assertThrows(RuntimeException.class, () -> it.reduce((ex, unused) -> { throw expected; }));
+        //@formatter:on
         assertThat(actual, sameInstance(expected));
     }
 
     private RuntimeException createAnDisabledRethrowingException() {
-        return new RuntimeException() {/*disable rethrow exception by ForkJoinTask*/
-        };
+        // @formatter:off
+        return new RuntimeException() {/*disable rethrow exception by ForkJoinTask*/};
+        // @formatter:on
     }
 
     Stream<Integer> testWith(Stream<Integer> source, BiConsumer<Exception, Consumer<? super Integer>> handler) {
@@ -110,24 +108,87 @@ abstract class StreamExceptionallyTest {
 
     abstract <T> Stream<T> exceptionally(Stream<T> apply, BiConsumer<Exception, Consumer<? super T>> handler);
 
-
 }
 
 class AllTests {
+
     @Nested
     class TestWithSpliterator {
         @Nested
-        class SequentialStreamCreatedBySpliteratorTest extends ExceptionHandlingBySpliterator {
-            SequentialStreamCreatedBySpliteratorTest() {
+        class SequentialStreamTest extends ExceptionHandlingBySpliterator {
+            SequentialStreamTest() {
                 super(Stream::sequential);
             }
 
         }
 
         @Nested
-        class ParallelStreamCreatedBySpliteratorTest extends ExceptionHandlingBySpliterator {
-            ParallelStreamCreatedBySpliteratorTest() {
+        class ParallelStreamTest extends ExceptionHandlingBySpliterator {
+            ParallelStreamTest() {
                 super(Stream::parallel);
+            }
+        }
+
+        abstract class ExceptionHandlingBySpliterator extends StreamExceptionallyTest {
+            ExceptionHandlingBySpliterator(Function<Stream<Integer>, Stream<Integer>> streamMode) {
+                super(streamMode);
+            }
+
+            <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
+                class ExceptionallySpliterator extends AbstractSpliterator<T> implements Consumer<T> {
+
+                    private Spliterator<T> source;
+                    private T value;
+                    private long fence;
+
+                    ExceptionallySpliterator(Spliterator<T> source) {
+                        super(source.estimateSize(), source.characteristics());
+                        this.fence = source.getExactSizeIfKnown();
+                        this.source = source;
+                    }
+
+                    @Override
+                    public Spliterator<T> trySplit() {
+                        Spliterator<T> it = source.trySplit();
+                        return it == null ? null : new ExceptionallySpliterator(it);
+                    }
+
+                    @Override
+                    public boolean tryAdvance(Consumer<? super T> action) {
+                        return fence != 0 && consuming(action);
+                    }
+
+                    private boolean consuming(Consumer<? super T> action) {
+                        Boolean state = tryConsuming(action);
+                        if (state == null) {
+                            return true;
+                        }
+                        if (state) {
+                            action.accept(value);
+                            value = null;
+                            return true;
+                        }
+                        return false;
+                    }
+
+
+                    private Boolean tryConsuming(Consumer<? super T> action) {
+                        fence--;
+                        try {
+                            return source.tryAdvance(this);
+                        } catch (Exception ex) {
+                            handler.accept(ex, action);
+                            return null;
+                        }
+                    }
+
+                    @Override
+                    public void accept(T value) {
+                        this.value = value;
+                    }
+                }
+
+                return stream(new ExceptionallySpliterator(source.spliterator()), source.isParallel()).onClose(source::close);
             }
         }
     }
@@ -135,144 +196,84 @@ class AllTests {
     @Nested
     class TestWithIterator {
         @Nested
-        class SequentialStreamCreatedByIteratorTest extends ExceptionHandlingByIterator {
+        class SequentialStreamTest extends ExceptionHandlingByIterator {
 
-            SequentialStreamCreatedByIteratorTest() {
+            SequentialStreamTest() {
                 super(Stream::sequential);
             }
 
         }
 
         @Nested
-        class ParallelStreamCreatedByIteratorTest extends ExceptionHandlingByIterator {
+        class ParallelStreamTest extends ExceptionHandlingByIterator {
 
-            ParallelStreamCreatedByIteratorTest() {
+            ParallelStreamTest() {
                 super(Stream::parallel);
             }
 
         }
-    }
-}
 
-abstract class ExceptionHandlingBySpliterator extends StreamExceptionallyTest {
-    ExceptionHandlingBySpliterator(Function<Stream<Integer>, Stream<Integer>> streamMode) {
-        super(streamMode);
-    }
 
-    <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
-        class ExceptionallySpliterator extends AbstractSpliterator<T>
-                implements Consumer<T> {
-
-            private Spliterator<T> source;
-            private T value;
-            private long fence;
-
-            ExceptionallySpliterator(Spliterator<T> source) {
-                super(source.estimateSize(), source.characteristics());
-                this.fence = source.getExactSizeIfKnown();
-                this.source = source;
+        abstract class ExceptionHandlingByIterator extends StreamExceptionallyTest {
+            ExceptionHandlingByIterator(Function<Stream<Integer>, Stream<Integer>> streamMode) {
+                super(streamMode);
             }
 
-            @Override
-            public Spliterator<T> trySplit() {
-                Spliterator<T> it = source.trySplit();
-                return it == null ? null : new ExceptionallySpliterator(it);
+            <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
+                Spliterator<T> s = source.spliterator();
+                return StreamSupport.stream(
+                        spliterator(exceptionally(s, handler), s.estimateSize(), s.characteristics()),
+                        false
+                );
             }
 
-            @Override
-            public boolean tryAdvance(Consumer<? super T> action) {
-                return fence != 0 && consuming(action);
-            }
 
-            private boolean consuming(Consumer<? super T> action) {
-                Boolean state = tryConsuming(action);
-                if (state == null) {
-                    return true;
+            //Don't worried the thread-safe & robust since it is invisible for anyone
+            private <T> Iterator<T> exceptionally(Spliterator<T> spliterator, BiConsumer<Exception, Consumer<? super T>> handler) {
+                class ExceptionallyIterator implements Iterator<T>, Consumer<T> {
+                    private Iterator<T> source = Spliterators.iterator(spliterator);
+                    private long fence = spliterator.getExactSizeIfKnown();
+                    private T value;
+                    private boolean valueInReady = false;
+
+                    @Override
+                    public boolean hasNext() {
+                        if (fence == 0) return false;
+                        if (valueInReady) return true;
+
+                        try {
+                            fence--;
+                            return source.hasNext();
+                        } catch (Exception ex) {
+                            handler.accept(ex, this);
+                            return valueInReady || hasNext();
+                        }
+                    }
+
+                    @Override
+                    public T next() {
+                        return valueInReady ? dump() : source.next();
+                    }
+
+                    private T dump() {
+                        T result = value;
+                        valueInReady = false;
+                        value = null;
+                        return result;
+                    }
+
+                    @Override
+                    public void accept(T value) {
+                        this.value = value;
+                        this.valueInReady = true;
+                    }
                 }
-                if (state) {
-                    action.accept(value);
-                    value = null;
-                    return true;
-                }
-                return false;
+                return new ExceptionallyIterator();
             }
 
-
-            private Boolean tryConsuming(Consumer<? super T> action) {
-                fence--;
-                try {
-                    return source.tryAdvance(this);
-                } catch (Exception ex) {
-                    handler.accept(ex, action);
-                    return null;
-                }
-            }
-
-            @Override
-            public void accept(T value) {
-                this.value = value;
-            }
         }
 
-        return stream(new ExceptionallySpliterator(source.spliterator()), source.isParallel()).onClose(source::close);
     }
 }
 
-abstract class ExceptionHandlingByIterator extends StreamExceptionallyTest {
-    ExceptionHandlingByIterator(Function<Stream<Integer>, Stream<Integer>> streamMode) {
-        super(streamMode);
-    }
 
-    <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
-        Spliterator<T> s = source.spliterator();
-        return StreamSupport.stream(
-                spliterator(exceptionally(s, handler), s.estimateSize(), s.characteristics()),
-                false
-        );
-    }
-
-
-    //Don't worried the thread-safe & robust since it is invisible for anyone
-    private <T> Iterator<T> exceptionally(Spliterator<T> spliterator, BiConsumer<Exception, Consumer<? super T>> handler) {
-        class ExceptionallyIterator implements Iterator<T>, Consumer<T> {
-            private Iterator<T> source = Spliterators.iterator(spliterator);
-            private long fence = spliterator.getExactSizeIfKnown();
-            private T value;
-            private boolean valueInReady = false;
-
-            @Override
-            public boolean hasNext() {
-                if (fence == 0) return false;
-                if (valueInReady) return true;
-
-                try {
-                    fence--;
-                    return source.hasNext();
-                } catch (Exception ex) {
-                    handler.accept(ex, this);
-                    return valueInReady || hasNext();
-                }
-            }
-
-            @Override
-            public T next() {
-                return valueInReady ? dump() : source.next();
-            }
-
-            private T dump() {
-                T result = value;
-                valueInReady = false;
-                value = null;
-                return result;
-            }
-
-            @Override
-            public void accept(T value) {
-                this.value = value;
-                this.valueInReady = true;
-            }
-        }
-        return new ExceptionallyIterator();
-    }
-
-}

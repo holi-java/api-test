@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.Spliterators.AbstractSpliterator;
@@ -11,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -19,6 +21,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Spliterators.spliterator;
+import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,8 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @SuppressWarnings({"WeakerAccess", "ResultOfMethodCallIgnored"})
 abstract class StreamExceptionallyTest {
 
+    static final BiConsumer<Exception, Consumer<? super Integer>> SKIPPING = (ex, unused) -> {/**/};
+    static final int DEFAULT_VALUE = -1;
+
     private Function<Stream<Integer>, Stream<Integer>> streamMode;
-    final BiConsumer<Exception, Consumer<? super Integer>> SKIPPING = (ex, unused) -> {/**/};
 
     StreamExceptionallyTest(Function<Stream<Integer>, Stream<Integer>> streamMode) {
         this.streamMode = streamMode;
@@ -55,8 +60,6 @@ abstract class StreamExceptionallyTest {
     @Test
     @Feature("Applying default value for the failed operations")
     void applyingDefaultValueForTheFailedOperations() throws Throwable {
-        final int DEFAULT_VALUE = -1;
-
         Stream<Integer> it = testWith(Stream.of("bad").map(Integer::parseInt), (ex, action) -> action.accept(DEFAULT_VALUE));
 
         assertThat(it.collect(toList()), equalTo(singletonList(DEFAULT_VALUE)));
@@ -105,6 +108,17 @@ abstract class StreamExceptionallyTest {
         testWith(Stream.<Integer>empty().onClose(closes::incrementAndGet), SKIPPING).close();
 
         assertThat(closes, once());
+    }
+
+    @Test
+    void supportsInfiniteStream() throws Throwable {
+        final int LIMIT = 100;
+        Stream<Integer> infinity = Stream.iterate("bad", identity()).map(Integer::parseInt);
+
+        List<Integer> result = testWith(infinity, (e, action) -> action.accept(DEFAULT_VALUE)).limit(LIMIT).collect(toList());
+
+        assertThat(result, hasSize(LIMIT));
+        assertThat(result.stream().distinct().collect(toList()), equalTo(singletonList(DEFAULT_VALUE)));
     }
 
     private RuntimeException createAnDisabledRethrowingException() {

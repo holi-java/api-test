@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.holi.utils.CardinalMatchers.once;
@@ -200,19 +201,19 @@ class AllExceptionallyStreamTests {
             }
         }
 
+
         abstract class ExceptionHandlingBySpliterator extends StreamExceptionallyTest {
             ExceptionHandlingBySpliterator(Function<Stream<Integer>, Stream<Integer>> streamMode) {
                 super(streamMode);
             }
 
             <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
-                class ExceptionallySpliterator extends AbstractSpliterator<T> implements Consumer<T> {
+                class ExceptionallySpliterator extends AbstractSpliterator<T> {
 
                     private Spliterator<T> source;
-                    private boolean valueInReady = false;
-                    private T value;
                     private boolean stop;
                     private boolean analyzed = false;
+                    private ValueStack<T> stack = new ValueStack<>();
 
                     private ExceptionallySpliterator(Spliterator<T> source) {
                         super(source.estimateSize(), source.characteristics());
@@ -230,14 +231,14 @@ class AllExceptionallyStreamTests {
                         if (stop) return false;
 
                         boolean exists = tryConsuming(action);
-                        if (valueInReady) action.accept(dump());
+                        stack.dump(action);
                         return exists;
                     }
 
 
                     private boolean tryConsuming(Consumer<? super T> action) {
                         try {
-                            return source.tryAdvance(this);
+                            return source.tryAdvance(stack);
                         } catch (Exception ex) {
                             stopIfNecessary(ex);
                             handler.accept(ex, action);
@@ -250,19 +251,7 @@ class AllExceptionallyStreamTests {
                         analyzed = true;
                     }
 
-                    private T dump() {
-                        valueInReady = false;
-                        T result = value;
-                        value = null;
-                        return result;
-                    }
 
-
-                    @Override
-                    public void accept(T value) {
-                        valueInReady = true;
-                        this.value = value;
-                    }
                 }
 
                 return stream(new ExceptionallySpliterator(source.spliterator()), source.isParallel()).onClose(source::close);
@@ -309,22 +298,21 @@ class AllExceptionallyStreamTests {
 
             //Don't worried the thread-safe & robust since it is invisible for anyone
             private <T> Iterator<T> exceptionally(Iterator<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
-                class ExceptionallyIterator implements Iterator<T>, Consumer<T> {
-                    private T value;
-                    private boolean valueInReady = false;
+                class ExceptionallyIterator implements Iterator<T> {
+                    private ValueStack<T> stack = new ValueStack<>();
                     private boolean stop = false;
                     private boolean analyzed = false;
 
                     @Override
                     public boolean hasNext() {
                         while (true) {
-                            if (valueInReady) return true;
+                            if (stack.ready()) return true;
                             if (stop) return false;
                             try {
                                 return source.hasNext();
                             } catch (Exception ex) {
                                 stopIfNecessary(ex);
-                                handler.accept(ex, this);
+                                handler.accept(ex, stack);
                             }
                         }
                     }
@@ -336,21 +324,9 @@ class AllExceptionallyStreamTests {
 
                     @Override
                     public T next() {
-                        return valueInReady ? dump() : source.next();
+                        return stack.orElse(source::next);
                     }
 
-                    private T dump() {
-                        valueInReady = false;
-                        T result = value;
-                        value = null;
-                        return result;
-                    }
-
-                    @Override
-                    public void accept(T value) {
-                        this.value = value;
-                        this.valueInReady = true;
-                    }
                 }
                 return new ExceptionallyIterator();
             }
@@ -372,5 +348,39 @@ class StreamExceptionTracker {
             }
         }
         return false;
+    }
+}
+
+class ValueStack<T> implements Consumer<T> {
+    private T value;
+    private boolean valueInReady = false;
+
+    public boolean ready() {
+        return valueInReady;
+    }
+
+    public T pop() {
+        valueInReady = false;
+        T result = value;
+        value = null;
+        return result;
+    }
+
+    public T orElse(Supplier<T> otherwise) {
+        return valueInReady ? pop() : otherwise.get();
+    }
+
+    public boolean dump(Consumer<? super T> action) {
+        if (valueInReady) {
+            action.accept(pop());
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void accept(T value) {
+        valueInReady = true;
+        this.value = value;
     }
 }

@@ -9,10 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 import java.util.stream.Stream;
 
 import static com.holi.utils.CardinalMatchers.once;
@@ -29,7 +26,6 @@ import static java.util.stream.StreamSupport.stream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static test.java.streams.StreamExceptionTracker.shouldStopTraversing;
 
 @interface Feature {
     String value();
@@ -209,11 +205,8 @@ class AllExceptionallyStreamTests {
 
             <T> Stream<T> exceptionally(Stream<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
                 class ExceptionallySpliterator extends AbstractSpliterator<T> {
-
                     private Spliterator<T> source;
-                    private boolean stop;
-                    private boolean analyzed = false;
-                    private ValueStack<T> stack = new ValueStack<>();
+                    private ValueStack<T> stack = new ValueStack<>(handler);
 
                     private ExceptionallySpliterator(Spliterator<T> source) {
                         super(source.estimateSize(), source.characteristics());
@@ -228,27 +221,7 @@ class AllExceptionallyStreamTests {
 
                     @Override
                     public boolean tryAdvance(Consumer<? super T> action) {
-                        if (stop) return false;
-
-                        boolean exists = tryConsuming(action);
-                        stack.dump(action);
-                        return exists;
-                    }
-
-
-                    private boolean tryConsuming(Consumer<? super T> action) {
-                        try {
-                            return source.tryAdvance(stack);
-                        } catch (Exception ex) {
-                            stopIfNecessary(ex);
-                            handler.accept(ex, action);
-                            return true;
-                        }
-                    }
-
-                    private void stopIfNecessary(Exception ex) {
-                        stop = !analyzed && shouldStopTraversing(ex);
-                        analyzed = true;
+                        return stack.dump(source::tryAdvance, action);
                     }
 
 
@@ -298,37 +271,19 @@ class AllExceptionallyStreamTests {
 
             //Don't worried the thread-safe & robust since it is invisible for anyone
             private <T> Iterator<T> exceptionally(Iterator<T> source, BiConsumer<Exception, Consumer<? super T>> handler) {
-                class ExceptionallyIterator implements Iterator<T> {
-                    private ValueStack<T> stack = new ValueStack<>();
-                    private boolean stop = false;
-                    private boolean analyzed = false;
+                return new Iterator<T>() {
+                    private ValueStack<T> stack = new ValueStack<>(handler);
 
                     @Override
                     public boolean hasNext() {
-                        while (true) {
-                            if (stack.ready()) return true;
-                            if (stop) return false;
-                            try {
-                                return source.hasNext();
-                            } catch (Exception ex) {
-                                stopIfNecessary(ex);
-                                handler.accept(ex, stack);
-                            }
-                        }
-                    }
-
-                    private void stopIfNecessary(Exception ex) {
-                        stop = !analyzed && shouldStopTraversing(ex);
-                        analyzed = true;
+                        return stack.ready(source::hasNext);
                     }
 
                     @Override
                     public T next() {
                         return stack.orElse(source::next);
                     }
-
-                }
-                return new ExceptionallyIterator();
+                };
             }
 
         }
@@ -354,23 +309,52 @@ class StreamExceptionTracker {
 class ValueStack<T> implements Consumer<T> {
     private T value;
     private boolean valueInReady = false;
+    private boolean analyzed = false;
+    private boolean stop = false;
+    private BiConsumer<Exception, Consumer<? super T>> exceptionHandler;
 
-    public boolean ready() {
-        return valueInReady;
+    public ValueStack(BiConsumer<Exception, Consumer<? super T>> exceptionHandler) {
+        this.exceptionHandler = exceptionHandler;
     }
 
-    public T pop() {
-        valueInReady = false;
-        T result = value;
-        value = null;
-        return result;
+    private static final String STREAM_BUG_CLASS = "java.util.stream.Streams$StreamBuilderImpl";
+
+    private static boolean shouldStopTraversing(Exception ex) {
+        for (StackTraceElement element : ex.getStackTrace()) {
+            if (STREAM_BUG_CLASS.equals(element.getClassName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    public T orElse(Supplier<T> otherwise) {
-        return valueInReady ? pop() : otherwise.get();
+    public boolean ready(BooleanSupplier generator) {
+        while (true) {
+            if (valueInReady) return true;
+            if (stop) return false;
+            try {
+                return generator.getAsBoolean();
+            } catch (Exception ex) {
+                exceptionally(ex);
+            }
+        }
     }
 
-    public boolean dump(Consumer<? super T> action) {
+    public boolean dump(Function<Consumer<? super T>, Boolean> provider, Consumer<? super T> action) {
+        //                    v--- todo: does the bitwise logic or operator have downside?
+        return push(provider) | pop(action);
+    }
+
+    public boolean push(Function<Consumer<? super T>, Boolean> provider) {
+        if (stop) return false;
+        try {
+            return provider.apply(this);
+        } catch (Exception ex) {
+            return exceptionally(ex);
+        }
+    }
+
+    public boolean pop(Consumer<? super T> action) {
         if (valueInReady) {
             action.accept(pop());
             return true;
@@ -378,9 +362,28 @@ class ValueStack<T> implements Consumer<T> {
         return false;
     }
 
+    public T orElse(Supplier<T> otherwise) {
+        return valueInReady ? pop() : otherwise.get();
+    }
+
+    private T pop() {
+        valueInReady = false;
+        T result = value;
+        value = null;
+        return result;
+    }
+
+    private boolean exceptionally(Exception ex) {
+        //                                             v--- todo: does the bitwise logic or operator have downside?
+        stop = !analyzed && shouldStopTraversing(ex) | !(analyzed = true);
+        exceptionHandler.accept(ex, this);
+        return true;
+    }
+
     @Override
     public void accept(T value) {
         valueInReady = true;
         this.value = value;
     }
+
 }

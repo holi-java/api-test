@@ -315,15 +315,14 @@ class ValueStack<T> implements Consumer<T> {
     }
 
     public boolean ready(BooleanSupplier generator) {
-        do {
-            if (valueInReady) return true;
-            if (stop) return false;
+        while (!valueInReady && !stop) {
             try {
                 return generator.getAsBoolean();
             } catch (Exception ex) {
                 exceptionally(ex);
             }
-        } while (true);
+        }
+        return valueInReady;
     }
 
     public boolean pop(Consumer<? super T> action) {

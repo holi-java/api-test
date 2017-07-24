@@ -221,7 +221,7 @@ class AllExceptionallyStreamTests {
 
                     @Override
                     public boolean tryAdvance(Consumer<? super T> action) {
-                        return stack.dump(source::tryAdvance, action);
+                        return stack.ready(() -> source.tryAdvance(stack)) && stack.pop(action);
                     }
 
 
@@ -281,7 +281,7 @@ class AllExceptionallyStreamTests {
 
                     @Override
                     public T next() {
-                        return stack.orElse(source::next);
+                        return stack.pop(source::next);
                     }
                 };
             }
@@ -315,7 +315,7 @@ class ValueStack<T> implements Consumer<T> {
     }
 
     public boolean ready(BooleanSupplier generator) {
-        while (true) {
+        do {
             if (valueInReady) return true;
             if (stop) return false;
             try {
@@ -323,21 +323,7 @@ class ValueStack<T> implements Consumer<T> {
             } catch (Exception ex) {
                 exceptionally(ex);
             }
-        }
-    }
-
-    public boolean dump(Function<Consumer<? super T>, Boolean> provider, Consumer<? super T> action) {
-        //                    v--- todo: does the bitwise logic or operator have downside?
-        return push(provider) | pop(action);
-    }
-
-    public boolean push(Function<Consumer<? super T>, Boolean> provider) {
-        if (stop) return false;
-        try {
-            return provider.apply(this);
-        } catch (Exception ex) {
-            return exceptionally(ex);
-        }
+        } while (true);
     }
 
     public boolean pop(Consumer<? super T> action) {
@@ -348,7 +334,7 @@ class ValueStack<T> implements Consumer<T> {
         return false;
     }
 
-    public T orElse(Supplier<T> otherwise) {
+    public T pop(Supplier<T> otherwise) {
         return valueInReady ? pop() : otherwise.get();
     }
 
@@ -359,11 +345,10 @@ class ValueStack<T> implements Consumer<T> {
         return result;
     }
 
-    private boolean exceptionally(Exception ex) {
-        //                                             v--- todo: does the bitwise logic or operator have downside?
-        stop = !analyzed && shouldStopTraversing(ex) | !(analyzed = true);
+    private void exceptionally(Exception ex) {
         exceptionHandler.accept(ex, this);
-        return true;
+        stop = !analyzed && shouldStopTraversing(ex);
+        analyzed = true;
     }
 
     @Override

@@ -176,7 +176,7 @@ abstract class StreamExceptionallyTest {
 
 }
 
-class AllTests {
+class AllExceptionallyStreamTests {
 
     @Nested
     class TestWithSpliterator {

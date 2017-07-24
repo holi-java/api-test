@@ -212,6 +212,7 @@ class AllTests {
                     private boolean valueInReady = false;
                     private T value;
                     private boolean stop;
+                    private boolean analyzed = false;
 
                     private ExceptionallySpliterator(Spliterator<T> source) {
                         super(source.estimateSize(), source.characteristics());
@@ -238,10 +239,15 @@ class AllTests {
                         try {
                             return source.tryAdvance(this);
                         } catch (Exception ex) {
-                            stop = shouldStopTraversing(ex);
+                            stopIfNecessary(ex);
                             handler.accept(ex, action);
                             return true;
                         }
+                    }
+
+                    private void stopIfNecessary(Exception ex) {
+                        stop = !analyzed && shouldStopTraversing(ex);
+                        analyzed = true;
                     }
 
                     private T dump() {
@@ -307,6 +313,7 @@ class AllTests {
                     private T value;
                     private boolean valueInReady = false;
                     private boolean stop = false;
+                    private boolean analyzed = false;
 
                     @Override
                     public boolean hasNext() {
@@ -316,10 +323,15 @@ class AllTests {
                             try {
                                 return source.hasNext();
                             } catch (Exception ex) {
-                                stop = shouldStopTraversing(ex);
+                                stopIfNecessary(ex);
                                 handler.accept(ex, this);
                             }
                         }
+                    }
+
+                    private void stopIfNecessary(Exception ex) {
+                        stop = !analyzed && shouldStopTraversing(ex);
+                        analyzed = true;
                     }
 
                     @Override

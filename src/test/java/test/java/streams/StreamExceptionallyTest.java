@@ -292,20 +292,6 @@ class AllExceptionallyStreamTests {
 }
 
 
-class StreamExceptionTracker {
-
-    private static final String STREAM_BUG_CLASS = "java.util.stream.Streams$StreamBuilderImpl";
-
-    public static boolean shouldStopTraversing(Exception ex) {
-        for (StackTraceElement element : ex.getStackTrace()) {
-            if (STREAM_BUG_CLASS.equals(element.getClassName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-}
-
 class ValueStack<T> implements Consumer<T> {
     private T value;
     private boolean valueInReady = false;
